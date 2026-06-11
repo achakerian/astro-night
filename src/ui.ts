@@ -2,7 +2,6 @@ import type { FilterMode } from './stars';
 
 export interface UiCallbacks {
   onTimeChange(years: number): void;
-  onReset(): void;
   onUnitsChange(useLightYears: boolean): void;
   onFilterChange(mode: FilterMode): void;
 }
@@ -22,8 +21,6 @@ export class Ui {
   private readonly slider: HTMLInputElement;
   private readonly yearLabel: HTMLElement;
   private readonly playBtn: HTMLButtonElement;
-  private readonly resetBtn: HTMLButtonElement;
-  private readonly nowBtn: HTMLButtonElement;
   private readonly featuresToggle: HTMLButtonElement;
   private readonly featuresPanel: HTMLElement;
   private readonly filterSeg: HTMLElement;
@@ -38,8 +35,6 @@ export class Ui {
     this.slider = byId<HTMLInputElement>('time');
     this.yearLabel = byId('year');
     this.playBtn = byId<HTMLButtonElement>('play');
-    this.resetBtn = byId<HTMLButtonElement>('reset');
-    this.nowBtn = byId<HTMLButtonElement>('now');
     this.featuresToggle = byId<HTMLButtonElement>('features-toggle');
     this.featuresPanel = byId('features');
     this.filterSeg = byId('filter-seg');
@@ -52,11 +47,6 @@ export class Ui {
     });
 
     this.playBtn.addEventListener('click', () => this.togglePlay());
-    this.resetBtn.addEventListener('click', () => this.cb.onReset());
-    this.nowBtn.addEventListener('click', () => {
-      this.stop();
-      this.setYear(0, true);
-    });
     // Collapsible "Filters & features" section.
     this.featuresToggle.addEventListener('click', () => {
       const open = this.featuresPanel.hidden;

@@ -20,8 +20,8 @@ interface SpecItem {
 const M_SUN_G = 4.67;
 const T_SUN = 5772;
 
-const BASE_Z = 3.0;
-const FAR_Z = 7.6;
+const BASE_Z = 4.1; // camera distance at rest (larger → planet appears smaller)
+const FAR_Z = 8.6;
 const INTRO_DUR = 1.1; // seconds for the zoom-in
 
 /**
@@ -141,7 +141,7 @@ export class StarInspector {
     this.group.add(this.body);
 
     this.coronaMat = makeCoronaMaterial();
-    const corona = new THREE.Mesh(new THREE.SphereGeometry(1.3, 48, 48), this.coronaMat);
+    const corona = new THREE.Mesh(new THREE.SphereGeometry(1.5, 48, 48), this.coronaMat);
     this.group.add(corona);
 
     this.group.rotation.z = 0.32; // axial tilt so surface + rotation read
@@ -185,7 +185,7 @@ export class StarInspector {
     colorFromBpRp(star.bpRp, rgb, 0);
     this.alienMat.uniforms.uTint.value.setRGB(rgb[0], rgb[1], rgb[2]);
     this.coronaMat.uniforms.uColor.value.setRGB(rgb[0], rgb[1], rgb[2]);
-    this.coronaMat.uniforms.uIntensity.value = 0.6;
+    this.coronaMat.uniforms.uIntensity.value = 0.9;
 
     // Show the procedural planet immediately, then swap to the HD surface once
     // it loads (if the textures have been committed to public/textures/).

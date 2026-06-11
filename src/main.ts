@@ -123,13 +123,6 @@ async function main(): Promise<void> {
     onTimeChange: (years) => {
       pendingYear = years;
     },
-    onReset: () => {
-      deselect();
-      flight.cancel();
-      interaction.controls.target.set(0, 0, 0);
-      camera.position.copy(INITIAL_CAM);
-      interaction.controls.update();
-    },
     onUnitsChange: (useLy) => applyUnits(useLy),
     onFilterChange: (mode) => field.setFilter(mode),
   });
