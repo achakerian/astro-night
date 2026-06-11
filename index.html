@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Gaia Local Neighbourhood — 3D Star Map</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+
+    <!-- Star identification tooltip -->
+    <div id="tooltip" class="tooltip" hidden></div>
+
+    <!-- Loading / boot overlay -->
+    <div id="loading" class="loading">
+      <div class="loading__spinner"></div>
+      <div class="loading__text">Contacting the Gaia archive…</div>
+    </div>
+
+    <!-- Corner control panel -->
+    <div id="panel" class="panel">
+      <header class="panel__header">
+        <h1>Gaia Local Neighbourhood</h1>
+        <span id="status-chip" class="chip chip--loading">Loading…</span>
+      </header>
+
+      <div class="panel__row panel__row--time">
+        <button id="play" class="btn btn--icon" title="Play / pause time" aria-label="Play">▶</button>
+        <div class="time">
+          <input id="time" class="slider" type="range" min="-100000" max="100000" step="100" value="0" />
+          <div class="time__readout"><span id="year">0</span> yr from today</div>
+        </div>
+      </div>
+
+      <div class="panel__row panel__row--buttons">
+        <button id="reset" class="btn">Reset view</button>
+        <button id="now" class="btn">Now (t=0)</button>
+        <label class="unit-toggle">
+          <input id="units" type="checkbox" /> light-years
+        </label>
+      </div>
+
+      <p class="panel__hint">
+        Drag to orbit · scroll to zoom · right-drag to pan · hover a star to identify it.
+      </p>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
