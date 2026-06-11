@@ -13,7 +13,9 @@ WHERE parallax > 20
   AND phot_g_mean_mag < 10
 ORDER BY phot_g_mean_mag ASC`;
 
-const LIVE_TIMEOUT_MS = 8000;
+// The Gaia sync TAP query routinely needs 10–20 s (cold cache / server load),
+// so give it real headroom before falling back. Override with ?timeout=<seconds>.
+const DEFAULT_TIMEOUT_MS = 20000;
 
 /** Resolve a public asset URL honouring Vite's `base` (GitHub Pages subpath). */
 function asset(path: string): string {
@@ -71,12 +73,12 @@ export function parseGaiaJson(json: GaiaTapJson): Star[] {
 }
 
 /** Fetch the live Gaia query with a hard timeout. Throws on any failure. */
-async function fetchLive(): Promise<Star[]> {
+async function fetchLive(timeoutMs: number): Promise<Star[]> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), LIVE_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   const url = buildTapUrl();
   const t0 = performance.now();
-  console.info(`[gaia] live query → ${TAP_URL} (timeout ${LIVE_TIMEOUT_MS} ms)`);
+  console.info(`[gaia] live query → ${TAP_URL} (timeout ${timeoutMs} ms)`);
   console.debug('[gaia] ADQL:\n' + ADQL);
   try {
     const res = await fetch(url, {
@@ -98,9 +100,9 @@ async function fetchLive(): Promise<Star[]> {
 }
 
 /** Turn a fetch failure into a short, classified, human-readable reason. */
-function describeError(err: unknown): string {
+function describeError(err: unknown, timeoutMs: number): string {
   if (err instanceof DOMException && err.name === 'AbortError') {
-    return `timed out after ${LIVE_TIMEOUT_MS} ms (slow network or unresponsive server)`;
+    return `timed out after ${(timeoutMs / 1000).toFixed(0)} s (slow network or unresponsive server)`;
   }
   // Browsers report CORS/connection failures as an opaque TypeError.
   if (err instanceof TypeError) {
@@ -167,17 +169,20 @@ function applyNames(stars: Star[], named: NamedStar[]): void {
  * `forceOffline` (e.g. `?offline` in the URL) skips the live attempt — handy
  * for testing the resilience path on the open night.
  */
-export async function loadStars(forceOffline = false): Promise<LoadResult> {
+export async function loadStars(
+  forceOffline = false,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+): Promise<LoadResult> {
   const named = await fetchNamedStars();
   let reason: string | undefined;
 
   if (!forceOffline) {
     try {
-      const stars = await fetchLive();
+      const stars = await fetchLive(timeoutMs);
       applyNames(stars, named);
       return { stars, source: 'live' };
     } catch (err) {
-      reason = describeError(err);
+      reason = describeError(err, timeoutMs);
       console.warn(`[gaia] ⚠️ live query failed → using bundled fallback. Reason: ${reason}`);
       console.warn('[gaia] underlying error:', err);
     }

@@ -30,8 +30,29 @@ async function main(): Promise<void> {
   scene.add(makeBackdrop());
 
   // ---- Load data (live Gaia → bundled fallback) -------------------------
-  const forceOffline = new URLSearchParams(location.search).has('offline');
-  const { stars, source, reason } = await loadStars(forceOffline);
+  const params = new URLSearchParams(location.search);
+  const forceOffline = params.has('offline');
+  const timeoutSec = Number(params.get('timeout'));
+  const timeoutMs = Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : undefined;
+
+  // While the (potentially slow) live query runs, count up on the overlay so a
+  // long Gaia response doesn't look like a hang.
+  const loadingText = document.querySelector<HTMLElement>('.loading__text');
+  let elapsed = 0;
+  const ticker = window.setInterval(() => {
+    elapsed += 1;
+    if (loadingText && !forceOffline) {
+      loadingText.textContent = `Contacting the Gaia archive… ${elapsed}s (this can take 10–20s)`;
+    }
+  }, 1000);
+
+  let result;
+  try {
+    result = await loadStars(forceOffline, timeoutMs);
+  } finally {
+    window.clearInterval(ticker);
+  }
+  const { stars, source, reason } = result;
 
   const field = new StarField(stars);
   scene.add(field.object);
