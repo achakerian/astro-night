@@ -74,19 +74,40 @@ export function parseGaiaJson(json: GaiaTapJson): Star[] {
 async function fetchLive(): Promise<Star[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), LIVE_TIMEOUT_MS);
+  const url = buildTapUrl();
+  const t0 = performance.now();
+  console.info(`[gaia] live query → ${TAP_URL} (timeout ${LIVE_TIMEOUT_MS} ms)`);
+  console.debug('[gaia] ADQL:\n' + ADQL);
   try {
-    const res = await fetch(buildTapUrl(), {
+    const res = await fetch(url, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });
-    if (!res.ok) throw new Error(`Gaia TAP HTTP ${res.status}`);
+    const dt = Math.round(performance.now() - t0);
+    console.info(`[gaia] response: HTTP ${res.status} ${res.statusText} in ${dt} ms`);
+    if (!res.ok) throw new Error(`Gaia TAP HTTP ${res.status} ${res.statusText}`);
+
     const json = (await res.json()) as GaiaTapJson;
     const stars = parseGaiaJson(json);
-    if (stars.length === 0) throw new Error('Gaia returned no usable rows');
+    if (stars.length === 0) throw new Error('Gaia returned 0 usable rows');
+    console.info(`[gaia] ✅ live OK: ${stars.length} stars in ${Math.round(performance.now() - t0)} ms`);
     return stars;
   } finally {
     clearTimeout(timer);
   }
+}
+
+/** Turn a fetch failure into a short, classified, human-readable reason. */
+function describeError(err: unknown): string {
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return `timed out after ${LIVE_TIMEOUT_MS} ms (slow network or unresponsive server)`;
+  }
+  // Browsers report CORS/connection failures as an opaque TypeError.
+  if (err instanceof TypeError) {
+    return `network or CORS blocked the request ("${err.message}") — the Gaia TAP endpoint did not return cross-origin headers for this site`;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
 }
 
 /** Load the bundled fallback dataset (committed copy of the same query). */
@@ -148,6 +169,7 @@ function applyNames(stars: Star[], named: NamedStar[]): void {
  */
 export async function loadStars(forceOffline = false): Promise<LoadResult> {
   const named = await fetchNamedStars();
+  let reason: string | undefined;
 
   if (!forceOffline) {
     try {
@@ -155,11 +177,17 @@ export async function loadStars(forceOffline = false): Promise<LoadResult> {
       applyNames(stars, named);
       return { stars, source: 'live' };
     } catch (err) {
-      console.warn('[gaia] live query failed, using bundled fallback:', err);
+      reason = describeError(err);
+      console.warn(`[gaia] ⚠️ live query failed → using bundled fallback. Reason: ${reason}`);
+      console.warn('[gaia] underlying error:', err);
     }
+  } else {
+    reason = 'forced offline via ?offline in the URL';
+    console.info('[gaia] ?offline set — skipping live query.');
   }
 
   const stars = await fetchFallback();
   applyNames(stars, named);
-  return { stars, source: 'offline' };
+  console.info(`[gaia] bundled fallback loaded: ${stars.length} stars.`);
+  return { stars, source: 'offline', reason };
 }

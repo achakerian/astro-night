@@ -25,6 +25,8 @@ export type DataSource = 'live' | 'offline';
 export interface LoadResult {
   stars: Star[];
   source: DataSource;
+  /** Human-readable reason the live query was not used (offline only). */
+  reason?: string;
 }
 
 /** A famous star to label, keyed by approximate sky position (and optional id). */

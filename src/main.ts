@@ -31,7 +31,7 @@ async function main(): Promise<void> {
 
   // ---- Load data (live Gaia → bundled fallback) -------------------------
   const forceOffline = new URLSearchParams(location.search).has('offline');
-  const { stars, source } = await loadStars(forceOffline);
+  const { stars, source, reason } = await loadStars(forceOffline);
 
   const field = new StarField(stars);
   scene.add(field.object);
@@ -92,8 +92,16 @@ async function main(): Promise<void> {
     },
   });
 
-  ui.setStatus(source);
+  ui.setStatus(source, reason);
   ui.hideLoading();
+
+  // Inspectable from the console: `__astroNight`
+  (window as unknown as Record<string, unknown>).__astroNight = {
+    source,
+    reason,
+    starCount: stars.length,
+    named: stars.filter((s) => s.name).length,
+  };
 
   // ---- Render loop ------------------------------------------------------
   const clock = new THREE.Clock();
@@ -137,7 +145,10 @@ async function main(): Promise<void> {
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  console.info(`[astro-night] ${stars.length} stars loaded (${source}).`);
+  console.info(
+    `[astro-night] ${stars.length} stars loaded (source: ${source}` +
+      `${reason ? `, reason: ${reason}` : ''}). Inspect window.__astroNight for details.`,
+  );
 }
 
 /**

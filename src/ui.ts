@@ -98,13 +98,17 @@ export class Ui {
     this.playBtn.classList.remove('is-playing');
   }
 
-  setStatus(source: DataSource): void {
+  setStatus(source: DataSource, reason?: string): void {
     if (source === 'live') {
       this.chip.textContent = 'Live Gaia data';
       this.chip.className = 'chip chip--live';
+      this.chip.title = 'Connected to the ESA Gaia archive.';
     } else {
       this.chip.textContent = 'Offline sample data';
       this.chip.className = 'chip chip--offline';
+      this.chip.title = reason
+        ? `Live Gaia query unavailable — ${reason}. Showing bundled sample stars.`
+        : 'Showing bundled sample stars.';
     }
   }
 
