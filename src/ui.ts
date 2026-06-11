@@ -104,10 +104,10 @@ export class Ui {
       this.chip.className = 'chip chip--live';
       this.chip.title = 'Connected to the ESA Gaia archive.';
     } else if (count >= 1000) {
-      // A full committed catalogue.
-      this.chip.textContent = 'Gaia DR3 (bundled)';
+      // The committed HYG catalogue (Hipparcos + Yale BSC + Gliese).
+      this.chip.textContent = 'HYG catalogue (bundled)';
       this.chip.className = 'chip chip--bundled';
-      this.chip.title = `Committed Gaia DR3 catalogue (${count.toLocaleString('en-US')} stars). No network used.`;
+      this.chip.title = `Committed HYG star catalogue (${count.toLocaleString('en-US')} stars within 50 pc). No network used.`;
     } else {
       this.chip.textContent = 'Sample data (bundled)';
       this.chip.className = 'chip chip--bundled';

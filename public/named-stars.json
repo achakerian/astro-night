@@ -1,36 +1,1007 @@
 [
-  { "name": "Sirius", "ra": 101.287, "dec": -16.716 },
-  { "name": "Alpha Centauri A", "ra": 219.902, "dec": -60.834 },
-  { "name": "Alpha Centauri B", "ra": 219.896, "dec": -60.838 },
-  { "name": "Barnard's Star", "ra": 269.452, "dec": 4.668 },
-  { "name": "Procyon", "ra": 114.825, "dec": 5.225 },
-  { "name": "Vega", "ra": 279.234, "dec": 38.784 },
-  { "name": "Altair", "ra": 297.696, "dec": 8.868 },
-  { "name": "Fomalhaut", "ra": 344.413, "dec": -29.622 },
-  { "name": "Pollux", "ra": 116.329, "dec": 28.026 },
-  { "name": "Arcturus", "ra": 213.915, "dec": 19.182 },
-  { "name": "Capella", "ra": 79.172, "dec": 45.998 },
-  { "name": "Aldebaran", "ra": 68.98, "dec": 16.509 },
-  { "name": "Castor", "ra": 113.65, "dec": 31.888 },
-  { "name": "Regulus", "ra": 152.093, "dec": 11.967 },
-  { "name": "Denebola", "ra": 177.265, "dec": 14.572 },
-  { "name": "61 Cygni A", "ra": 316.724, "dec": 38.749 },
-  { "name": "61 Cygni B", "ra": 316.73, "dec": 38.734 },
-  { "name": "Epsilon Eridani", "ra": 53.233, "dec": -9.458 },
-  { "name": "Epsilon Indi", "ra": 330.84, "dec": -56.786 },
-  { "name": "Tau Ceti", "ra": 26.017, "dec": -15.937 },
-  { "name": "Lalande 21185", "ra": 165.834, "dec": 35.97 },
-  { "name": "Groombridge 1830", "ra": 178.23, "dec": 37.719 },
-  { "name": "Kapteyn's Star", "ra": 77.919, "dec": -45.018 },
-  { "name": "40 Eridani", "ra": 63.818, "dec": -7.652 },
-  { "name": "70 Ophiuchi", "ra": 271.366, "dec": 2.5 },
-  { "name": "Sigma Draconis", "ra": 293.09, "dec": 69.661 },
-  { "name": "Eta Cassiopeiae", "ra": 12.276, "dec": 57.815 },
-  { "name": "82 Eridani", "ra": 43.07, "dec": -43.07 },
-  { "name": "Delta Pavonis", "ra": 302.182, "dec": -66.182 },
-  { "name": "Beta Hydri", "ra": 6.438, "dec": -77.254 },
-  { "name": "Mu Cassiopeiae", "ra": 13.7, "dec": 54.917 },
-  { "name": "Muphrid", "ra": 208.671, "dec": 18.398 },
-  { "name": "61 Virginis", "ra": 187.47, "dec": -18.311 },
-  { "name": "Gamma Leporis", "ra": 86.116, "dec": -22.448 }
+  {
+    "name": "Sirius",
+    "ra": 101.2872,
+    "dec": -16.7161
+  },
+  {
+    "name": "Arcturus",
+    "ra": 213.9155,
+    "dec": 19.1824
+  },
+  {
+    "name": "Rigil Kentaurus",
+    "ra": 219.9115,
+    "dec": -60.834
+  },
+  {
+    "name": "Vega",
+    "ra": 279.2346,
+    "dec": 38.7837
+  },
+  {
+    "name": "Capella",
+    "ra": 79.1723,
+    "dec": 45.998
+  },
+  {
+    "name": "Procyon",
+    "ra": 114.8255,
+    "dec": 5.225
+  },
+  {
+    "name": "Achernar",
+    "ra": 24.4283,
+    "dec": -57.2368
+  },
+  {
+    "name": "Altair",
+    "ra": 297.6958,
+    "dec": 8.8683
+  },
+  {
+    "name": "Aldebaran",
+    "ra": 68.9802,
+    "dec": 16.5093
+  },
+  {
+    "name": "Pollux",
+    "ra": 116.3292,
+    "dec": 28.0262
+  },
+  {
+    "name": "Fomalhaut",
+    "ra": 344.4126,
+    "dec": -29.6222
+  },
+  {
+    "name": "Toliman",
+    "ra": 219.9052,
+    "dec": -60.8383
+  },
+  {
+    "name": "Regulus",
+    "ra": 152.093,
+    "dec": 11.9672
+  },
+  {
+    "name": "Castor",
+    "ra": 113.6495,
+    "dec": 31.8883
+  },
+  {
+    "name": "Gacrux",
+    "ra": 187.7914,
+    "dec": -57.1132
+  },
+  {
+    "name": "Elnath",
+    "ra": 81.573,
+    "dec": 28.6075
+  },
+  {
+    "name": "Miaplacidus",
+    "ra": 138.3006,
+    "dec": -69.7172
+  },
+  {
+    "name": "Alnair",
+    "ra": 332.0581,
+    "dec": -46.961
+  },
+  {
+    "name": "Alioth",
+    "ra": 193.5071,
+    "dec": 55.9598
+  },
+  {
+    "name": "Kaus Australis",
+    "ra": 276.043,
+    "dec": -34.3846
+  },
+  {
+    "name": "Dubhe",
+    "ra": 165.9323,
+    "dec": 61.751
+  },
+  {
+    "name": "Alkaid",
+    "ra": 206.8853,
+    "dec": 49.3133
+  },
+  {
+    "name": "Menkalinan",
+    "ra": 89.8822,
+    "dec": 44.9474
+  },
+  {
+    "name": "Alhena",
+    "ra": 99.4279,
+    "dec": 16.3993
+  },
+  {
+    "name": "Alsephina",
+    "ra": 131.1759,
+    "dec": -54.7088
+  },
+  {
+    "name": "Hamal",
+    "ra": 31.7933,
+    "dec": 23.4624
+  },
+  {
+    "name": "Algieba",
+    "ra": 154.9931,
+    "dec": 19.8415
+  },
+  {
+    "name": "Diphda",
+    "ra": 10.8974,
+    "dec": -17.9866
+  },
+  {
+    "name": "Menkent",
+    "ra": 211.6709,
+    "dec": -36.37
+  },
+  {
+    "name": "Alpheratz",
+    "ra": 2.0969,
+    "dec": 29.0904
+  },
+  {
+    "name": "Kochab",
+    "ra": 222.6766,
+    "dec": 74.1555
+  },
+  {
+    "name": "Rasalhague",
+    "ra": 263.7336,
+    "dec": 12.56
+  },
+  {
+    "name": "Algol",
+    "ra": 47.0422,
+    "dec": 40.9556
+  },
+  {
+    "name": "Denebola",
+    "ra": 177.2649,
+    "dec": 14.5721
+  },
+  {
+    "name": "Alphecca",
+    "ra": 233.6719,
+    "dec": 26.7147
+  },
+  {
+    "name": "Mizar",
+    "ra": 200.9812,
+    "dec": 54.9254
+  },
+  {
+    "name": "Eltanin",
+    "ra": 269.1516,
+    "dec": 51.4889
+  },
+  {
+    "name": "Caph",
+    "ra": 2.2933,
+    "dec": 59.1498
+  },
+  {
+    "name": "Larawag",
+    "ra": 252.5412,
+    "dec": -34.2932
+  },
+  {
+    "name": "Merak",
+    "ra": 165.4602,
+    "dec": 56.3824
+  },
+  {
+    "name": "Ankaa",
+    "ra": 6.5708,
+    "dec": -42.306
+  },
+  {
+    "name": "Phecda",
+    "ra": 178.4575,
+    "dec": 53.6948
+  },
+  {
+    "name": "Sabik",
+    "ra": 257.5945,
+    "dec": -15.7249
+  },
+  {
+    "name": "Alderamin",
+    "ra": 319.6445,
+    "dec": 62.5856
+  },
+  {
+    "name": "Aljanah",
+    "ra": 311.5527,
+    "dec": 33.9703
+  },
+  {
+    "name": "Markab",
+    "ra": 346.1902,
+    "dec": 15.2053
+  },
+  {
+    "name": "Zosma",
+    "ra": 168.5271,
+    "dec": 20.5237
+  },
+  {
+    "name": "Gienah",
+    "ra": 183.9516,
+    "dec": -17.5419
+  },
+  {
+    "name": "Ascella",
+    "ra": 285.653,
+    "dec": -29.8801
+  },
+  {
+    "name": "Unukalhai",
+    "ra": 236.067,
+    "dec": 6.4256
+  },
+  {
+    "name": "Sheratan",
+    "ra": 28.66,
+    "dec": 20.808
+  },
+  {
+    "name": "Kraz",
+    "ra": 188.5968,
+    "dec": -23.3968
+  },
+  {
+    "name": "Ruchbah",
+    "ra": 21.4532,
+    "dec": 60.2353
+  },
+  {
+    "name": "Muphrid",
+    "ra": 208.6712,
+    "dec": 18.3977
+  },
+  {
+    "name": "Athebyne",
+    "ra": 245.9979,
+    "dec": 61.5142
+  },
+  {
+    "name": "Porrima",
+    "ra": 190.4152,
+    "dec": -1.4494
+  },
+  {
+    "name": "Zubenelgenubi",
+    "ra": 222.7197,
+    "dec": -16.0418
+  },
+  {
+    "name": "Cebalrai",
+    "ra": 265.8681,
+    "dec": 4.5673
+  },
+  {
+    "name": "Cursa",
+    "ra": 76.9624,
+    "dec": -5.0864
+  },
+  {
+    "name": "Kornephoros",
+    "ra": 247.555,
+    "dec": 21.4896
+  },
+  {
+    "name": "Nihal",
+    "ra": 82.0613,
+    "dec": -20.7594
+  },
+  {
+    "name": "Kaus Borealis",
+    "ra": 276.9927,
+    "dec": -25.4217
+  },
+  {
+    "name": "Tureis",
+    "ra": 121.8861,
+    "dec": -24.3043
+  },
+  {
+    "name": "Vindemiatrix",
+    "ra": 195.5442,
+    "dec": 10.9592
+  },
+  {
+    "name": "Deneb Algedi",
+    "ra": 326.7602,
+    "dec": -16.1273
+  },
+  {
+    "name": "Castor B",
+    "ra": 113.6524,
+    "dec": 31.8905
+  },
+  {
+    "name": "Acamar",
+    "ra": 44.5653,
+    "dec": -40.3047
+  },
+  {
+    "name": "Gomeisa",
+    "ra": 111.7877,
+    "dec": 8.2893
+  },
+  {
+    "name": "Cor Caroli",
+    "ra": 194.0071,
+    "dec": 38.3184
+  },
+  {
+    "name": "Algorab",
+    "ra": 187.4661,
+    "dec": -16.5154
+  },
+  {
+    "name": "Alnasl",
+    "ra": 271.452,
+    "dec": -30.4241
+  },
+  {
+    "name": "Okab",
+    "ra": 286.3525,
+    "dec": 13.8635
+  },
+  {
+    "name": "Seginus",
+    "ra": 218.0195,
+    "dec": 38.3083
+  },
+  {
+    "name": "Altais",
+    "ra": 288.1384,
+    "dec": 67.6615
+  },
+  {
+    "name": "Wazn",
+    "ra": 87.7399,
+    "dec": -35.7683
+  },
+  {
+    "name": "Talitha",
+    "ra": 134.8024,
+    "dec": 48.0418
+  },
+  {
+    "name": "Sarin",
+    "ra": 258.758,
+    "dec": 24.8392
+  },
+  {
+    "name": "Tabit",
+    "ra": 72.46,
+    "dec": 6.9613
+  },
+  {
+    "name": "Fuyue",
+    "ra": 267.4645,
+    "dec": -37.0433
+  },
+  {
+    "name": "Errai",
+    "ra": 354.8373,
+    "dec": 77.6323
+  },
+  {
+    "name": "Yed Posterior",
+    "ra": 244.5804,
+    "dec": -4.6925
+  },
+  {
+    "name": "Skat",
+    "ra": 343.6626,
+    "dec": -15.8208
+  },
+  {
+    "name": "Edasich",
+    "ra": 231.2324,
+    "dec": 58.9661
+  },
+  {
+    "name": "Megrez",
+    "ra": 183.8563,
+    "dec": 57.0326
+  },
+  {
+    "name": "Alzirr",
+    "ra": 101.3224,
+    "dec": 12.8956
+  },
+  {
+    "name": "Ashlesha",
+    "ra": 131.6938,
+    "dec": 6.4188
+  },
+  {
+    "name": "Heze",
+    "ra": 203.6733,
+    "dec": -0.5958
+  },
+  {
+    "name": "Chamukuy",
+    "ra": 67.1656,
+    "dec": 15.8709
+  },
+  {
+    "name": "Mothallah",
+    "ra": 28.2704,
+    "dec": 29.5788
+  },
+  {
+    "name": "Tania Borealis",
+    "ra": 154.2743,
+    "dec": 42.9144
+  },
+  {
+    "name": "Achird",
+    "ra": 12.2739,
+    "dec": 57.8152
+  },
+  {
+    "name": "Kaffaljidhma",
+    "ra": 40.8252,
+    "dec": 3.2358
+  },
+  {
+    "name": "Wasat",
+    "ra": 110.0307,
+    "dec": 21.9823
+  },
+  {
+    "name": "Sadalbari",
+    "ra": 342.5008,
+    "dec": 24.6016
+  },
+  {
+    "name": "Rana",
+    "ra": 55.8121,
+    "dec": -9.7634
+  },
+  {
+    "name": "Subra",
+    "ra": 145.2876,
+    "dec": 9.8923
+  },
+  {
+    "name": "Biham",
+    "ra": 332.5499,
+    "dec": 6.1979
+  },
+  {
+    "name": "Ain",
+    "ra": 67.1541,
+    "dec": 19.1804
+  },
+  {
+    "name": "Algedi",
+    "ra": 304.5136,
+    "dec": -12.5449
+  },
+  {
+    "name": "Zavijava",
+    "ra": 177.6738,
+    "dec": 1.7647
+  },
+  {
+    "name": "Rotanev",
+    "ra": 309.3872,
+    "dec": 14.5951
+  },
+  {
+    "name": "Prima Hyadum",
+    "ra": 64.9483,
+    "dec": 15.6276
+  },
+  {
+    "name": "Nusakan",
+    "ra": 231.9573,
+    "dec": 29.1057
+  },
+  {
+    "name": "Nashira",
+    "ra": 325.0227,
+    "dec": -16.6623
+  },
+  {
+    "name": "Alshain",
+    "ra": 298.8283,
+    "dec": 6.4068
+  },
+  {
+    "name": "Ran",
+    "ra": 53.2327,
+    "dec": -9.4583
+  },
+  {
+    "name": "Grumium",
+    "ra": 268.382,
+    "dec": 56.8726
+  },
+  {
+    "name": "Secunda Hyadum",
+    "ra": 65.7337,
+    "dec": 17.5425
+  },
+  {
+    "name": "Misam",
+    "ra": 47.3739,
+    "dec": 44.8575
+  },
+  {
+    "name": "Praecipua",
+    "ra": 163.3279,
+    "dec": 34.2149
+  },
+  {
+    "name": "Dalim",
+    "ra": 48.0187,
+    "dec": -28.9876
+  },
+  {
+    "name": "Alrescha",
+    "ra": 30.5118,
+    "dec": 2.7638
+  },
+  {
+    "name": "Sceptrum",
+    "ra": 69.5451,
+    "dec": -14.304
+  },
+  {
+    "name": "Rasalas",
+    "ra": 148.191,
+    "dec": 26.007
+  },
+  {
+    "name": "Azha",
+    "ra": 44.1069,
+    "dec": -8.8981
+  },
+  {
+    "name": "Asellus Australis",
+    "ra": 131.1712,
+    "dec": 18.1543
+  },
+  {
+    "name": "Alcor",
+    "ra": 201.3062,
+    "dec": 54.988
+  },
+  {
+    "name": "Alchiba",
+    "ra": 182.1034,
+    "dec": -24.7289
+  },
+  {
+    "name": "Beid",
+    "ra": 62.9664,
+    "dec": -6.8376
+  },
+  {
+    "name": "Syrma",
+    "ra": 214.0036,
+    "dec": -6.0005
+  },
+  {
+    "name": "Alkes",
+    "ra": 164.9437,
+    "dec": -18.2988
+  },
+  {
+    "name": "Titawin",
+    "ra": 24.1995,
+    "dec": 41.4055
+  },
+  {
+    "name": "Meridiana",
+    "ra": 287.368,
+    "dec": -37.9045
+  },
+  {
+    "name": "Xuange",
+    "ra": 214.0961,
+    "dec": 46.0883
+  },
+  {
+    "name": "Chara",
+    "ra": 188.4362,
+    "dec": 41.3575
+  },
+  {
+    "name": "82 G. Eri",
+    "ra": 49.9792,
+    "dec": -43.0698
+  },
+  {
+    "name": "Kurhah",
+    "ra": 330.947,
+    "dec": 64.628
+  },
+  {
+    "name": "Arkab Posterior",
+    "ra": 290.8046,
+    "dec": -44.7998
+  },
+  {
+    "name": "Alkalurops",
+    "ra": 231.1227,
+    "dec": 37.3772
+  },
+  {
+    "name": "Diadem",
+    "ra": 197.497,
+    "dec": 17.5294
+  },
+  {
+    "name": "Guniibuu",
+    "ra": 258.8375,
+    "dec": -26.6028
+  },
+  {
+    "name": "Alula Australis",
+    "ra": 169.5468,
+    "dec": 31.5288
+  },
+  {
+    "name": "Keid",
+    "ra": 63.8181,
+    "dec": -7.6529
+  },
+  {
+    "name": "Dziban",
+    "ra": 265.4847,
+    "dec": 72.1488
+  },
+  {
+    "name": "Salm",
+    "ra": 350.1593,
+    "dec": 23.7403
+  },
+  {
+    "name": "Alya",
+    "ra": 284.0549,
+    "dec": 4.2036
+  },
+  {
+    "name": "Tegmine",
+    "ra": 123.053,
+    "dec": 17.6478
+  },
+  {
+    "name": "Alsafi",
+    "ra": 293.0872,
+    "dec": 69.6612
+  },
+  {
+    "name": "Terebellum",
+    "ra": 298.9598,
+    "dec": -26.2995
+  },
+  {
+    "name": "Zibal",
+    "ra": 48.9584,
+    "dec": -8.8197
+  },
+  {
+    "name": "Alula Australis B",
+    "ra": 169.5468,
+    "dec": 31.5288
+  },
+  {
+    "name": "Elgafar",
+    "ra": 217.0506,
+    "dec": -2.228
+  },
+  {
+    "name": "Graffias",
+    "ra": 241.0916,
+    "dec": -11.3746
+  },
+  {
+    "name": "Chalawan",
+    "ra": 164.8668,
+    "dec": 40.4303
+  },
+  {
+    "name": "Guniibuu B",
+    "ra": 258.836,
+    "dec": -26.6032
+  },
+  {
+    "name": "Cervantes",
+    "ra": 266.0363,
+    "dec": -51.8341
+  },
+  {
+    "name": "Taiyi",
+    "ra": 193.869,
+    "dec": 65.4385
+  },
+  {
+    "name": "Helvetios",
+    "ra": 344.3666,
+    "dec": 20.7688
+  },
+  {
+    "name": "Cor Caroli B",
+    "ra": 194.002,
+    "dec": 38.3149
+  },
+  {
+    "name": "Alrakis",
+    "ra": 256.3307,
+    "dec": 54.4691
+  },
+  {
+    "name": "96 G. Psc",
+    "ra": 12.0957,
+    "dec": 5.2806
+  },
+  {
+    "name": "p Eridani",
+    "ra": 24.9475,
+    "dec": -56.1964
+  },
+  {
+    "name": "Merga",
+    "ra": 222.3278,
+    "dec": 46.1162
+  },
+  {
+    "name": "268 G. Cet",
+    "ra": 39.0204,
+    "dec": 6.8869
+  },
+  {
+    "name": "p Eridani",
+    "ra": 24.945,
+    "dec": -56.1946
+  },
+  {
+    "name": "Dziban B",
+    "ra": 265.4919,
+    "dec": 72.1569
+  },
+  {
+    "name": "Copernicus",
+    "ra": 133.1494,
+    "dec": 28.3308
+  },
+  {
+    "name": "Gumala",
+    "ra": 288.8884,
+    "dec": -24.1794
+  },
+  {
+    "name": "Citalá",
+    "ra": 105.0752,
+    "dec": -5.3672
+  },
+  {
+    "name": "Groombridge 1830",
+    "ra": 178.2423,
+    "dec": 37.7187
+  },
+  {
+    "name": "Alkalurops B",
+    "ra": 231.1287,
+    "dec": 37.3473
+  },
+  {
+    "name": "Bubup",
+    "ra": 84.2575,
+    "dec": -73.6993
+  },
+  {
+    "name": "Lacaille 8760",
+    "ra": 319.3159,
+    "dec": -38.8674
+  },
+  {
+    "name": "Tupã",
+    "ra": 186.4434,
+    "dec": -64.0221
+  },
+  {
+    "name": "Bélénos",
+    "ra": 21.3021,
+    "dec": 28.5667
+  },
+  {
+    "name": "Tupi",
+    "ra": 54.9299,
+    "dec": -52.9158
+  },
+  {
+    "name": "Dofida",
+    "ra": 203.1065,
+    "dec": -47.2714
+  },
+  {
+    "name": "Lacaille 9352",
+    "ra": 346.463,
+    "dec": -35.8531
+  },
+  {
+    "name": "Rapeto",
+    "ra": 256.1285,
+    "dec": -43.3098
+  },
+  {
+    "name": "Uklun",
+    "ra": 176.2104,
+    "dec": -58.7037
+  },
+  {
+    "name": "Itonda",
+    "ra": 329.3326,
+    "dec": -37.7636
+  },
+  {
+    "name": "Lalande 21185",
+    "ra": 165.8345,
+    "dec": 35.9699
+  },
+  {
+    "name": "Nenque",
+    "ra": 16.1674,
+    "dec": -39.4882
+  },
+  {
+    "name": "Cocibolca",
+    "ra": 11.111,
+    "dec": -26.5157
+  },
+  {
+    "name": "Lucilinburhuc",
+    "ra": 97.1905,
+    "dec": 38.963
+  },
+  {
+    "name": "Alasia",
+    "ra": 275.4574,
+    "dec": -11.9227
+  },
+  {
+    "name": "Mönch",
+    "ra": 221.8864,
+    "dec": -0.2815
+  },
+  {
+    "name": "Emiw",
+    "ra": 17.6964,
+    "dec": -66.1882
+  },
+  {
+    "name": "Flegetonte",
+    "ra": 176.4262,
+    "dec": 2.8215
+  },
+  {
+    "name": "Groombridge 34",
+    "ra": 4.5926,
+    "dec": 44.023
+  },
+  {
+    "name": "Lusitânia",
+    "ra": 97.305,
+    "dec": 10.9339
+  },
+  {
+    "name": "Nervia",
+    "ra": 102.8771,
+    "dec": 40.8678
+  },
+  {
+    "name": "Tapecue",
+    "ra": 116.9569,
+    "dec": -54.2641
+  },
+  {
+    "name": "Kalausi",
+    "ra": 144.2993,
+    "dec": -43.2722
+  },
+  {
+    "name": "Macondo",
+    "ra": 161.0872,
+    "dec": -33.577
+  },
+  {
+    "name": "Sagarmatha",
+    "ra": 173.9647,
+    "dec": -4.7557
+  },
+  {
+    "name": "Natasha",
+    "ra": 147.5104,
+    "dec": -49.7903
+  },
+  {
+    "name": "Ebla",
+    "ra": 347.2947,
+    "dec": -2.2607
+  },
+  {
+    "name": "Karaka",
+    "ra": 233.9169,
+    "dec": -80.2046
+  },
+  {
+    "name": "Kapteyn's Star",
+    "ra": 77.9125,
+    "dec": -45.0184
+  },
+  {
+    "name": "Struve 2398 A",
+    "ra": 280.6977,
+    "dec": 59.6304
+  },
+  {
+    "name": "Shama",
+    "ra": 171.0723,
+    "dec": -1.5291
+  },
+  {
+    "name": "Ceibo",
+    "ra": 114.8412,
+    "dec": -78.279
+  },
+  {
+    "name": "Barnard's Star",
+    "ra": 269.4521,
+    "dec": 4.6934
+  },
+  {
+    "name": "Kruger 60",
+    "ra": 336.9996,
+    "dec": 57.6959
+  },
+  {
+    "name": "Felixvarela",
+    "ra": 7.143,
+    "dec": -16.2263
+  },
+  {
+    "name": "Pincoya",
+    "ra": 270.7789,
+    "dec": -28.5606
+  },
+  {
+    "name": "Struve 2398 B",
+    "ra": 280.6987,
+    "dec": 59.6268
+  },
+  {
+    "name": "Solaris",
+    "ra": 318.3999,
+    "dec": 14.6894
+  },
+  {
+    "name": "Luyten's Star",
+    "ra": 111.8521,
+    "dec": 5.2258
+  },
+  {
+    "name": "Intan",
+    "ra": 50.1777,
+    "dec": -33.7301
+  }
 ]
