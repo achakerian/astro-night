@@ -16,6 +16,7 @@ import { dirname, resolve } from 'node:path';
 const BASE = 'https://www.solarsystemscope.com/textures/download/';
 
 const FILES = [
+  '2k_sun.jpg', // HD star-surface granulation, recoloured per star
   '2k_mercury.jpg',
   '2k_venus_surface.jpg',
   '2k_earth_daymap.jpg',

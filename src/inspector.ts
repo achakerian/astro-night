@@ -51,9 +51,14 @@ export class StarInspector {
   private readonly starMat: THREE.ShaderMaterial;
   private readonly coronaMat: THREE.ShaderMaterial;
   private readonly flareMat = makeSunFlareMaterial();
+  private readonly starTexMat = makeStarTextureMaterial();
   private flareMesh!: THREE.Mesh;
   private readonly body: THREE.Mesh;
   private readonly group = new THREE.Group();
+
+  private readonly texLoader = new THREE.TextureLoader();
+  private readonly texCache = new Map<string, Promise<THREE.Texture>>();
+  private selToken = 0;
 
   private readonly wiki = new WikiPopup();
   private readonly tip: HTMLElement;
@@ -146,16 +151,14 @@ export class StarInspector {
   close(): void {
     this.open = false;
     this.current = null;
+    this.selToken++; // cancel any in-flight texture swap
     this.overlay.hidden = true;
   }
 
   openSun(): void {
     this.current = 'sun';
-    // The Sun is a star — render it glowing, with animated solar flares.
-    this.body.material = this.starMat;
     this.flareMesh.visible = true;
-    this.starMat.uniforms.uColor.value.setRGB(1.0, 0.93, 0.74);
-    this.starMat.uniforms.uSpots.value = 0.25;
+    this.applyStarSurface(1.0, 0.93, 0.74, 0.25);
     this.flareMat.uniforms.uColor.value.setRGB(1.0, 0.5, 0.12);
     this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.85, 0.55);
     this.coronaMat.uniforms.uIntensity.value = 1.0;
@@ -167,27 +170,65 @@ export class StarInspector {
     this.current = star;
     const rgb = new Float32Array(3);
     colorFromBpRp(star.bpRp, rgb, 0);
-
-    // Every catalogue object is a star → render it as a detailed flaring star,
-    // coloured by its own spectral type.
-    this.body.material = this.starMat;
-    this.flareMesh.visible = true;
-    this.starMat.uniforms.uColor.value.setRGB(rgb[0], rgb[1], rgb[2]);
     const temp = tempFromBpRp(star.bpRp) ?? 5200;
-    this.starMat.uniforms.uSpots.value = THREE.MathUtils.clamp((5800 - temp) / 3200, 0.05, 0.85);
-    // Flares tinted toward the star's colour (hot plasma → near white at peaks).
+    const spots = THREE.MathUtils.clamp((5800 - temp) / 3200, 0.05, 0.85);
+
+    // Every catalogue object is a star → detailed flaring star, coloured by type.
+    this.flareMesh.visible = true;
+    this.applyStarSurface(rgb[0], rgb[1], rgb[2], spots);
     this.flareMat.uniforms.uColor.value.setRGB(
       Math.min(1, rgb[0] * 0.8 + 0.25),
       rgb[1] * 0.6 + 0.12,
       rgb[2] * 0.45 + 0.04,
     );
-
-    // Corona glow, brightened from the star's colour.
     this.coronaMat.uniforms.uColor.value.setRGB(rgb[0] * 0.6 + 0.4, rgb[1] * 0.6 + 0.4, rgb[2] * 0.6 + 0.4);
     this.coronaMat.uniforms.uIntensity.value = 1.0;
 
     this.renderStarSpecs(star);
     this.show();
+  }
+
+  /**
+   * Apply the star surface: the procedural shader shows immediately, then the
+   * HD Sun-granulation texture (recoloured to rgb) swaps in once it loads.
+   */
+  private applyStarSurface(r: number, g: number, b: number, spots: number): void {
+    this.body.material = this.starMat;
+    this.starMat.uniforms.uColor.value.setRGB(r, g, b);
+    this.starMat.uniforms.uSpots.value = spots;
+    this.starTexMat.uniforms.uColor.value.setRGB(r, g, b);
+    this.starTexMat.uniforms.uSpots.value = spots;
+
+    const token = ++this.selToken;
+    void this.loadTexture('2k_sun.jpg')
+      .then((tex) => {
+        if (token !== this.selToken) return;
+        this.starTexMat.uniforms.map.value = tex;
+        this.body.material = this.starTexMat;
+      })
+      .catch(() => {
+        /* texture not present yet → keep the procedural star */
+      });
+  }
+
+  private loadTexture(file: string): Promise<THREE.Texture> {
+    let p = this.texCache.get(file);
+    if (p) return p;
+    const url = `${import.meta.env.BASE_URL}textures/${file}`;
+    p = new Promise<THREE.Texture>((resolve, reject) => {
+      this.texLoader.load(
+        url,
+        (t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.anisotropy = 4;
+          resolve(t);
+        },
+        undefined,
+        reject,
+      );
+    });
+    this.texCache.set(file, p);
+    return p;
   }
 
   /** Advance + render the inspector scene (called each frame while open). */
@@ -481,6 +522,52 @@ function makeSunFlareMaterial(): THREE.ShaderMaterial {
         float a = rim * p * flick;
         vec3 col = mix(uColor, mix(uColor, vec3(1.0), 0.7), p);
         gl_FragColor = vec4(col, a);
+      }
+    `,
+  });
+}
+
+/**
+ * HD star surface from the real Sun granulation texture, recoloured to the
+ * star's own colour, with extra sunspot darkening for cool stars and limb
+ * darkening. Used once the texture has loaded.
+ */
+function makeStarTextureMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: null },
+      uColor: { value: new THREE.Color(1, 0.9, 0.7) },
+      uSpots: { value: 0.25 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vNormalV;
+      varying vec3 vViewPos;
+      void main(){
+        vUv = uv;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vViewPos = mv.xyz;
+        vNormalV = normalMatrix * normal;
+        gl_Position = projectionMatrix * mv;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D map;
+      uniform vec3 uColor;
+      uniform float uSpots;
+      varying vec2 vUv;
+      varying vec3 vNormalV;
+      varying vec3 vViewPos;
+      void main(){
+        vec3 tex = texture2D(map, vUv).rgb;
+        float lum = dot(tex, vec3(0.299, 0.587, 0.114));
+        vec3 col = uColor * (0.55 + 0.85 * lum);
+        col += uColor * 0.5 * smoothstep(0.72, 1.0, lum);   // bright granules
+        float dark = smoothstep(0.34, 0.12, lum);
+        col *= 1.0 - uSpots * 0.5 * dark;                   // deeper spots on cool stars
+        float ndv = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
+        col *= mix(0.4, 1.1, pow(ndv, 0.55));               // limb darkening
+        gl_FragColor = vec4(col, 1.0);
       }
     `,
   });
