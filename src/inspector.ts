@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { Star } from './types';
 import {
+  colorFromBpRp,
   parsecsToLightYears,
   spectralClassFromBpRp,
   tempFromBpRp,
@@ -28,22 +29,18 @@ const INTRO_DUR = 1.1; // seconds for the zoom-in
  * mapped deterministically to one of these by a hash of its id, so the same
  * star always shows the same world while the set as a whole stays varied.
  */
-interface Archetype {
-  file: string;
-  atmo: [number, number, number];
-  atmoI: number;
-  clouds?: boolean;
-}
-const ARCHETYPES: Archetype[] = [
-  { file: '2k_earth_daymap.jpg', atmo: [0.45, 0.66, 1.0], atmoI: 0.7, clouds: true },
-  { file: '2k_mars.jpg', atmo: [0.9, 0.6, 0.45], atmoI: 0.3 },
-  { file: '2k_neptune.jpg', atmo: [0.4, 0.55, 1.0], atmoI: 0.7 },
-  { file: '2k_jupiter.jpg', atmo: [0.9, 0.8, 0.65], atmoI: 0.4 },
-  { file: '2k_venus_surface.jpg', atmo: [1.0, 0.8, 0.45], atmoI: 0.8 },
-  { file: '2k_mercury.jpg', atmo: [0, 0, 0], atmoI: 0 },
-  { file: '2k_uranus.jpg', atmo: [0.6, 0.9, 0.95], atmoI: 0.6 },
-  { file: '2k_saturn.jpg', atmo: [0.95, 0.85, 0.6], atmoI: 0.4 },
-  { file: '2k_moon.jpg', atmo: [0, 0, 0], atmoI: 0 },
+// Texture maps used only for HD surface *detail* (relief, bands, craters); the
+// alien-planet shader discards their colour and recolours by the star's hue, so
+// none read as a recognisable solar-system body. Earth is deliberately omitted.
+const DETAIL_TEXTURES = [
+  '2k_mercury.jpg',
+  '2k_venus_surface.jpg',
+  '2k_mars.jpg',
+  '2k_jupiter.jpg',
+  '2k_saturn.jpg',
+  '2k_uranus.jpg',
+  '2k_neptune.jpg',
+  '2k_moon.jpg',
 ];
 
 /**
@@ -67,9 +64,8 @@ export class StarInspector {
   private readonly planetMat: THREE.ShaderMaterial;
   private readonly starMat: THREE.ShaderMaterial;
   private readonly coronaMat: THREE.ShaderMaterial;
-  private readonly texturedMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
+  private readonly alienMat = makeAlienPlanetMaterial();
   private readonly body: THREE.Mesh;
-  private cloudMesh!: THREE.Mesh;
   private readonly group = new THREE.Group();
 
   private readonly texLoader = new THREE.TextureLoader();
@@ -148,23 +144,8 @@ export class StarInspector {
     const corona = new THREE.Mesh(new THREE.SphereGeometry(1.3, 48, 48), this.coronaMat);
     this.group.add(corona);
 
-    // Cloud shell (used for Earth-like worlds), driven by an alpha texture.
-    this.cloudMesh = new THREE.Mesh(
-      new THREE.SphereGeometry(1.012, 64, 64),
-      new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false, color: 0xffffff, roughness: 1 }),
-    );
-    this.cloudMesh.visible = false;
-    this.group.add(this.cloudMesh);
-
-    this.group.rotation.z = 0.32; // axial tilt so ice caps + rotation read
+    this.group.rotation.z = 0.32; // axial tilt so surface + rotation read
     this.scene.add(this.group);
-
-    // Lighting for the textured (MeshStandard) planet path. The procedural and
-    // star shaders are self-lit and ignore these.
-    const key = new THREE.DirectionalLight(0xffffff, 2.6);
-    key.position.set(3, 1.4, 2.2);
-    this.scene.add(key);
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.14));
   }
 
   setUnits(useLightYears: boolean): void {
@@ -186,7 +167,6 @@ export class StarInspector {
     this.selToken++; // invalidate any pending planet-texture swap
     // The Sun is a star — render it glowing, not as a planet.
     this.body.material = this.starMat;
-    this.cloudMesh.visible = false;
     this.starMat.uniforms.uColor.value.setRGB(1.0, 0.93, 0.74);
     this.starMat.uniforms.uSpots.value = 0.25;
     this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.85, 0.55);
@@ -197,34 +177,27 @@ export class StarInspector {
 
   openStar(star: Star): void {
     this.current = star;
-    const arch = ARCHETYPES[hashStr(star.sourceId) % ARCHETYPES.length];
+    const file = DETAIL_TEXTURES[hashStr(star.sourceId) % DETAIL_TEXTURES.length];
 
-    // Atmosphere halo from the archetype.
-    this.coronaMat.uniforms.uColor.value.setRGB(arch.atmo[0], arch.atmo[1], arch.atmo[2]);
-    this.coronaMat.uniforms.uIntensity.value = arch.atmoI;
+    // The alien world (and its atmosphere) takes the star's own colour, so it
+    // reads as an exoplanet rather than a recognisable solar-system body.
+    const rgb = new Float32Array(3);
+    colorFromBpRp(star.bpRp, rgb, 0);
+    this.alienMat.uniforms.uTint.value.setRGB(rgb[0], rgb[1], rgb[2]);
+    this.coronaMat.uniforms.uColor.value.setRGB(rgb[0], rgb[1], rgb[2]);
+    this.coronaMat.uniforms.uIntensity.value = 0.6;
 
-    // Show the procedural planet immediately, then swap to the HD texture once
+    // Show the procedural planet immediately, then swap to the HD surface once
     // it loads (if the textures have been committed to public/textures/).
     this.body.material = this.planetMat;
     this.configurePlanet(star);
-    this.cloudMesh.visible = false;
 
     const token = ++this.selToken;
-    void this.loadTexture(arch.file)
+    void this.loadTexture(file)
       .then((tex) => {
         if (token !== this.selToken) return;
-        this.texturedMat.map = tex;
-        this.texturedMat.needsUpdate = true;
-        this.body.material = this.texturedMat;
-        if (arch.clouds) {
-          void this.loadTexture('2k_earth_clouds.jpg').then((ct) => {
-            if (token !== this.selToken) return;
-            const m = this.cloudMesh.material as THREE.MeshStandardMaterial;
-            m.alphaMap = ct;
-            m.needsUpdate = true;
-            this.cloudMesh.visible = true;
-          });
-        }
+        this.alienMat.uniforms.map.value = tex;
+        this.body.material = this.alienMat;
       })
       .catch(() => {
         /* textures not present yet → keep the procedural planet */
@@ -544,6 +517,48 @@ function makePlanetMaterial(): THREE.ShaderMaterial {
         col += vec3(0.3,0.14,0.05) * term * 0.35;
 
         gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+}
+
+/**
+ * Alien planet: uses a real planet texture only as a luminance "detail" source
+ * (relief, bands, craters), then recolours it along a palette derived from the
+ * star's own colour and lights it with a fixed key direction. Nothing reads as
+ * a recognisable solar-system body.
+ */
+function makeAlienPlanetMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      map: { value: null },
+      uTint: { value: new THREE.Color(0.6, 0.7, 1.0) },
+      uLight: { value: new THREE.Vector3(3, 1.4, 2.2).normalize() },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      varying vec3 vWorldN;
+      void main(){
+        vUv = uv;
+        vWorldN = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D map;
+      uniform vec3 uTint;
+      uniform vec3 uLight;
+      varying vec2 vUv;
+      varying vec3 vWorldN;
+      void main(){
+        vec3 tex = texture2D(map, vUv).rgb;
+        float lum = dot(tex, vec3(0.299, 0.587, 0.114));
+        vec3 shadow = uTint * 0.22;
+        vec3 mid = uTint * 0.9;
+        vec3 hi = mix(uTint, vec3(1.0), 0.65);
+        vec3 base = lum < 0.5 ? mix(shadow, mid, lum * 2.0) : mix(mid, hi, (lum - 0.5) * 2.0);
+        float diff = max(dot(normalize(vWorldN), normalize(uLight)), 0.0);
+        gl_FragColor = vec4(base * (0.08 + 1.05 * diff), 1.0);
       }
     `,
   });
