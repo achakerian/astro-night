@@ -1,5 +1,3 @@
-import type { DataSource } from './types';
-
 export interface UiCallbacks {
   onTimeChange(years: number): void;
   onReset(): void;
@@ -24,7 +22,6 @@ export class Ui {
   private readonly resetBtn: HTMLButtonElement;
   private readonly nowBtn: HTMLButtonElement;
   private readonly unitsToggle: HTMLInputElement;
-  private readonly chip: HTMLElement;
   private readonly loading: HTMLElement;
 
   private year = 0;
@@ -38,7 +35,6 @@ export class Ui {
     this.resetBtn = byId<HTMLButtonElement>('reset');
     this.nowBtn = byId<HTMLButtonElement>('now');
     this.unitsToggle = byId<HTMLInputElement>('units');
-    this.chip = byId('status-chip');
     this.loading = byId('loading');
 
     this.slider.addEventListener('input', () => {
@@ -96,25 +92,6 @@ export class Ui {
     this.playBtn.textContent = '▶';
     this.playBtn.setAttribute('aria-label', 'Play');
     this.playBtn.classList.remove('is-playing');
-  }
-
-  setStatus(source: DataSource, reason?: string, count = 0): void {
-    if (source === 'live') {
-      this.chip.textContent = 'Live Gaia data';
-      this.chip.className = 'chip chip--live';
-      this.chip.title = 'Connected to the ESA Gaia archive.';
-    } else if (count >= 1000) {
-      // The committed HYG catalogue (Hipparcos + Yale BSC + Gliese).
-      this.chip.textContent = 'HYG catalogue (bundled)';
-      this.chip.className = 'chip chip--bundled';
-      this.chip.title = `Committed HYG star catalogue (${count.toLocaleString('en-US')} stars within 50 pc). No network used.`;
-    } else {
-      this.chip.textContent = 'Sample data (bundled)';
-      this.chip.className = 'chip chip--bundled';
-      this.chip.title = reason
-        ? `Live Gaia query unavailable — ${reason}. Showing the bundled sample.`
-        : `Bundled sample catalogue (${count} stars). No network used.`;
-    }
   }
 
   /** Reflect the unit choice on the corner checkbox (no event fired). */

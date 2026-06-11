@@ -103,6 +103,15 @@ scripts/           fetch-fallback.ts
 .github/workflows/ deploy.yml
 ```
 
+## Credits
+
+- Star data: the **HYG database** (Hipparcos + Yale Bright Star + Gliese),
+  compiled by David Nash / astronexus. Refresh with `npm run fetch-fallback`.
+- Planet textures: **Solar System Scope** (solarsystemscope.com/textures),
+  licensed **CC BY 4.0**. Download with `npm run fetch-textures` (saved to
+  `public/textures/`). The inspector renders each star as a representative
+  planet; the mapping is artistic, not physical.
+
 ## Notes & limitations
 
 - Proper motion uses a linear small-angle displacement of `(ra, dec)` and ignores

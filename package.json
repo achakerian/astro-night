@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "fetch-fallback": "tsx scripts/fetch-fallback.ts"
+    "fetch-fallback": "tsx scripts/fetch-fallback.ts",
+    "fetch-textures": "tsx scripts/fetch-textures.ts"
   },
   "dependencies": {
     "three": "^0.169.0"

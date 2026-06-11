@@ -133,7 +133,6 @@ async function main(): Promise<void> {
     onUnitsChange: (useLy) => applyUnits(useLy),
   });
 
-  ui.setStatus(source, reason, stars.length);
   ui.hideLoading();
 
   // Inspectable from the console: `__astroNight`

@@ -24,6 +24,29 @@ const FAR_Z = 7.6;
 const INTRO_DUR = 1.1; // seconds for the zoom-in
 
 /**
+ * Realistic planet archetypes (HD textures from public/textures/). Each star is
+ * mapped deterministically to one of these by a hash of its id, so the same
+ * star always shows the same world while the set as a whole stays varied.
+ */
+interface Archetype {
+  file: string;
+  atmo: [number, number, number];
+  atmoI: number;
+  clouds?: boolean;
+}
+const ARCHETYPES: Archetype[] = [
+  { file: '2k_earth_daymap.jpg', atmo: [0.45, 0.66, 1.0], atmoI: 0.7, clouds: true },
+  { file: '2k_mars.jpg', atmo: [0.9, 0.6, 0.45], atmoI: 0.3 },
+  { file: '2k_neptune.jpg', atmo: [0.4, 0.55, 1.0], atmoI: 0.7 },
+  { file: '2k_jupiter.jpg', atmo: [0.9, 0.8, 0.65], atmoI: 0.4 },
+  { file: '2k_venus_surface.jpg', atmo: [1.0, 0.8, 0.45], atmoI: 0.8 },
+  { file: '2k_mercury.jpg', atmo: [0, 0, 0], atmoI: 0 },
+  { file: '2k_uranus.jpg', atmo: [0.6, 0.9, 0.95], atmoI: 0.6 },
+  { file: '2k_saturn.jpg', atmo: [0.95, 0.85, 0.6], atmoI: 0.4 },
+  { file: '2k_moon.jpg', atmo: [0, 0, 0], atmoI: 0 },
+];
+
+/**
  * Full-screen "inspector": a detailed, slowly rotating render of the selected
  * object on the left and its specs on the right. Stars are visualised as
  * Terra-Genesis-style procedural planets (oceans, continents, ice caps,
@@ -44,8 +67,14 @@ export class StarInspector {
   private readonly planetMat: THREE.ShaderMaterial;
   private readonly starMat: THREE.ShaderMaterial;
   private readonly coronaMat: THREE.ShaderMaterial;
+  private readonly texturedMat = new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 });
   private readonly body: THREE.Mesh;
+  private cloudMesh!: THREE.Mesh;
   private readonly group = new THREE.Group();
+
+  private readonly texLoader = new THREE.TextureLoader();
+  private readonly texCache = new Map<string, Promise<THREE.Texture>>();
+  private selToken = 0;
 
   private readonly wiki = new WikiPopup();
   private readonly tip: HTMLElement;
@@ -105,6 +134,7 @@ export class StarInspector {
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
     this.camera.position.set(0, 0, BASE_Z);
@@ -118,8 +148,23 @@ export class StarInspector {
     const corona = new THREE.Mesh(new THREE.SphereGeometry(1.3, 48, 48), this.coronaMat);
     this.group.add(corona);
 
+    // Cloud shell (used for Earth-like worlds), driven by an alpha texture.
+    this.cloudMesh = new THREE.Mesh(
+      new THREE.SphereGeometry(1.012, 64, 64),
+      new THREE.MeshStandardMaterial({ transparent: true, depthWrite: false, color: 0xffffff, roughness: 1 }),
+    );
+    this.cloudMesh.visible = false;
+    this.group.add(this.cloudMesh);
+
     this.group.rotation.z = 0.32; // axial tilt so ice caps + rotation read
     this.scene.add(this.group);
+
+    // Lighting for the textured (MeshStandard) planet path. The procedural and
+    // star shaders are self-lit and ignore these.
+    const key = new THREE.DirectionalLight(0xffffff, 2.6);
+    key.position.set(3, 1.4, 2.2);
+    this.scene.add(key);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.14));
   }
 
   setUnits(useLightYears: boolean): void {
@@ -132,13 +177,16 @@ export class StarInspector {
   close(): void {
     this.open = false;
     this.current = null;
+    this.selToken++; // cancel any in-flight texture swap
     this.overlay.hidden = true;
   }
 
   openSun(): void {
     this.current = 'sun';
+    this.selToken++; // invalidate any pending planet-texture swap
     // The Sun is a star — render it glowing, not as a planet.
     this.body.material = this.starMat;
+    this.cloudMesh.visible = false;
     this.starMat.uniforms.uColor.value.setRGB(1.0, 0.93, 0.74);
     this.starMat.uniforms.uSpots.value = 0.25;
     this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.85, 0.55);
@@ -149,10 +197,61 @@ export class StarInspector {
 
   openStar(star: Star): void {
     this.current = star;
+    const arch = ARCHETYPES[hashStr(star.sourceId) % ARCHETYPES.length];
+
+    // Atmosphere halo from the archetype.
+    this.coronaMat.uniforms.uColor.value.setRGB(arch.atmo[0], arch.atmo[1], arch.atmo[2]);
+    this.coronaMat.uniforms.uIntensity.value = arch.atmoI;
+
+    // Show the procedural planet immediately, then swap to the HD texture once
+    // it loads (if the textures have been committed to public/textures/).
     this.body.material = this.planetMat;
     this.configurePlanet(star);
+    this.cloudMesh.visible = false;
+
+    const token = ++this.selToken;
+    void this.loadTexture(arch.file)
+      .then((tex) => {
+        if (token !== this.selToken) return;
+        this.texturedMat.map = tex;
+        this.texturedMat.needsUpdate = true;
+        this.body.material = this.texturedMat;
+        if (arch.clouds) {
+          void this.loadTexture('2k_earth_clouds.jpg').then((ct) => {
+            if (token !== this.selToken) return;
+            const m = this.cloudMesh.material as THREE.MeshStandardMaterial;
+            m.alphaMap = ct;
+            m.needsUpdate = true;
+            this.cloudMesh.visible = true;
+          });
+        }
+      })
+      .catch(() => {
+        /* textures not present yet → keep the procedural planet */
+      });
+
     this.renderStarSpecs(star);
     this.show();
+  }
+
+  private loadTexture(file: string): Promise<THREE.Texture> {
+    let p = this.texCache.get(file);
+    if (p) return p;
+    const url = `${import.meta.env.BASE_URL}textures/${file}`;
+    p = new Promise<THREE.Texture>((resolve, reject) => {
+      this.texLoader.load(
+        url,
+        (t) => {
+          t.colorSpace = THREE.SRGBColorSpace;
+          t.anisotropy = 4;
+          resolve(t);
+        },
+        undefined,
+        reject,
+      );
+    });
+    this.texCache.set(file, p);
+    return p;
   }
 
   /** Advance + render the inspector scene (called each frame while open). */
