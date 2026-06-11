@@ -230,6 +230,81 @@ body {
   box-shadow: 0 0 0 1px rgba(240, 170, 70, 0.35) inset;
 }
 
+/* ---- Details panel ------------------------------------------------------ */
+.details {
+  position: fixed;
+  z-index: 20;
+  right: 16px;
+  bottom: 16px;
+  width: min(320px, calc(100vw - 32px));
+  padding: 12px 14px 14px;
+  border-radius: 14px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  animation: detailsIn 0.2s ease;
+}
+@keyframes detailsIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.details__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.details__header h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.details__close {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.details__close:hover {
+  color: var(--text);
+}
+.details__body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.spec {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+}
+.spec__k {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.spec__v {
+  color: var(--text);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.spec__swatch {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 @media (max-width: 480px) {
   .panel {
     top: 10px;

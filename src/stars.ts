@@ -10,6 +10,7 @@ import { colorFromBpRp, positionAt, sizeFromMag } from './transform';
 export class StarField {
   readonly object = new THREE.Group();
   readonly points: THREE.Points;
+  readonly sun: THREE.Object3D;
   readonly stars: Star[];
 
   private readonly geometry: THREE.BufferGeometry;
@@ -38,7 +39,15 @@ export class StarField {
     this.points = new THREE.Points(this.geometry, makeStarMaterial());
     this.points.frustumCulled = false; // positions move far under the slider
     this.object.add(this.points);
-    this.object.add(makeSunMarker());
+
+    this.sun = makeSunMarker();
+    this.object.add(this.sun);
+  }
+
+  /** Current world position of star `index` (read from the live buffer). */
+  getPosition(index: number, target: THREE.Vector3): THREE.Vector3 {
+    const o = index * 3;
+    return target.set(this.positions[o], this.positions[o + 1], this.positions[o + 2]);
   }
 
   /** Rewrite every star position for a given year offset and flag for upload. */
@@ -106,23 +115,47 @@ function makeSunMarker(): THREE.Object3D {
   group.name = 'sun';
 
   const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.45, 24, 24),
+    new THREE.SphereGeometry(0.4, 32, 32),
     new THREE.MeshBasicMaterial({ color: 0xfff2c4 }),
   );
+  core.name = 'sun-core';
   group.add(core);
 
-  // Faint additive halo so it reads as "the Sun" against the star field.
+  // Soft additive halo via a radial-gradient sprite texture. (A plain
+  // SpriteMaterial with no map renders as an opaque square — the "yellow box".)
   const halo = new THREE.Sprite(
     new THREE.SpriteMaterial({
-      color: 0xffe79a,
+      map: glowTexture(),
+      color: 0xffe7a0,
       transparent: true,
-      opacity: 0.5,
+      opacity: 0.9,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     }),
   );
-  halo.scale.setScalar(3.2);
+  halo.scale.setScalar(4.5);
   group.add(halo);
 
   return group;
+}
+
+let cachedGlow: THREE.CanvasTexture | null = null;
+
+/** A 128px radial-gradient sprite, opaque centre fading to transparent edge. */
+function glowTexture(): THREE.CanvasTexture {
+  if (cachedGlow) return cachedGlow;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0.0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.25, 'rgba(255,238,180,0.85)');
+  g.addColorStop(0.55, 'rgba(255,210,120,0.35)');
+  g.addColorStop(1.0, 'rgba(255,200,100,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  cachedGlow = new THREE.CanvasTexture(canvas);
+  cachedGlow.needsUpdate = true;
+  return cachedGlow;
 }

@@ -12,6 +12,15 @@
     <!-- Star identification tooltip -->
     <div id="tooltip" class="tooltip" hidden></div>
 
+    <!-- Selected-object details panel (click a star or the Sun) -->
+    <div id="details" class="details" hidden>
+      <header class="details__header">
+        <h2 id="details-title">—</h2>
+        <button id="details-close" class="details__close" aria-label="Close">×</button>
+      </header>
+      <div id="details-body" class="details__body"></div>
+    </div>
+
     <!-- Loading / boot overlay -->
     <div id="loading" class="loading">
       <div class="loading__spinner"></div>

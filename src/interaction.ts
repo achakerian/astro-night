@@ -4,6 +4,9 @@ import type { StarField } from './stars';
 import { colorFromBpRp, parsecsToLightYears } from './transform';
 import type { Star } from './types';
 
+/** What a click resolved to: a star index, the Sun, or empty space. */
+export type Selection = number | 'sun' | null;
+
 export interface InteractionHandle {
   controls: OrbitControls;
   /** Switch tooltip distance units; refreshes any visible tooltip. */
@@ -11,14 +14,15 @@ export interface InteractionHandle {
 }
 
 /**
- * Wires up OrbitControls plus pointer raycasting against the star field, and
- * drives the HTML tooltip. Works for both mouse and touch.
+ * Wires up OrbitControls, pointer raycasting for the hover tooltip, and
+ * click/tap selection (reported via `onSelect`). Works for mouse and touch.
  */
 export function setupInteraction(
   renderer: THREE.WebGLRenderer,
   camera: THREE.PerspectiveCamera,
   field: StarField,
   tooltipEl: HTMLElement,
+  onSelect: (selection: Selection) => void,
 ): InteractionHandle {
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
@@ -37,12 +41,16 @@ export function setupInteraction(
   let lastClientX = 0;
   let lastClientY = 0;
 
+  // Click-vs-drag tracking, so orbiting the camera never triggers a selection.
+  let downX = 0;
+  let downY = 0;
+  let dragging = false;
+  const CLICK_SLOP = 5; // px of movement still counted as a click
+
   const swatch = new Float32Array(3);
 
   function tooltipDistance(star: Star): string {
-    if (useLightYears) {
-      return `${parsecsToLightYears(star.distancePc).toFixed(1)} ly`;
-    }
+    if (useLightYears) return `${parsecsToLightYears(star.distancePc).toFixed(1)} ly`;
     return `${star.distancePc.toFixed(1)} pc`;
   }
 
@@ -52,7 +60,7 @@ export function setupInteraction(
     const name = star.name ?? 'Unnamed star';
     tooltipEl.innerHTML =
       `<div class="tooltip__name"><span class="tooltip__swatch" style="color:${css};background:${css}"></span>${escapeHtml(name)}</div>` +
-      `<div class="tooltip__meta">${tooltipDistance(star)}</div>`;
+      `<div class="tooltip__meta">${tooltipDistance(star)} · click for details</div>`;
     tooltipEl.style.left = `${clientX}px`;
     tooltipEl.style.top = `${clientY}px`;
     tooltipEl.hidden = false;
@@ -63,25 +71,28 @@ export function setupInteraction(
     tooltipEl.hidden = true;
   }
 
-  function pick(clientX: number, clientY: number): void {
+  function setPointer(clientX: number, clientY: number): void {
     const rect = renderer.domElement.getBoundingClientRect();
     pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-
-    // Scale the pick radius with how far we are zoomed out, so picking stays
-    // comfortable whether you're skimming the Sun or viewing the whole volume.
+    // Pick radius scales with zoom so picking stays comfortable at any scale.
     const camDist = camera.position.length();
     raycaster.params.Points.threshold = THREE.MathUtils.clamp(camDist * 0.012, 0.12, 2.2);
     raycaster.setFromCamera(pointer, camera);
+  }
 
+  /** Nearest star index under the cursor (by distance to the ray), or null. */
+  function pickStarIndex(): number | null {
     const hits = raycaster.intersectObject(field.points, false);
-    if (hits.length === 0) {
-      clearTooltip();
-      return;
-    }
-    // Prefer the star closest to the cursor ray, not merely nearest the camera.
+    if (hits.length === 0) return null;
     hits.sort((a, b) => (a.distanceToRay ?? Infinity) - (b.distanceToRay ?? Infinity));
-    const index = hits[0].index;
+    return hits[0].index ?? null;
+  }
+
+  // ---- Hover tooltip ------------------------------------------------------
+  function hover(clientX: number, clientY: number): void {
+    setPointer(clientX, clientY);
+    const index = pickStarIndex();
     if (index == null) {
       clearTooltip();
       return;
@@ -90,39 +101,60 @@ export function setupInteraction(
     renderTooltip(hovered, clientX, clientY);
   }
 
+  // ---- Click / tap selection ---------------------------------------------
+  function select(clientX: number, clientY: number): void {
+    setPointer(clientX, clientY);
+    const starHits = raycaster.intersectObject(field.points, false);
+    starHits.sort((a, b) => (a.distanceToRay ?? Infinity) - (b.distanceToRay ?? Infinity));
+    const starHit = starHits[0] ?? null;
+    const sunHit = raycaster.intersectObject(field.sun, true)[0];
+
+    if (sunHit && (!starHit || sunHit.distance < starHit.distance)) {
+      onSelect('sun');
+    } else if (starHit && starHit.index != null) {
+      onSelect(starHit.index);
+    }
+    // Clicking empty space leaves the current selection untouched.
+  }
+
   const dom = renderer.domElement;
+
+  dom.addEventListener('pointerdown', (e) => {
+    downX = e.clientX;
+    downY = e.clientY;
+    dragging = false;
+    clearTooltip();
+  });
 
   dom.addEventListener('pointermove', (e) => {
     lastClientX = e.clientX;
     lastClientY = e.clientY;
-    // While dragging the camera, suppress the tooltip to avoid flicker.
     if ((e.buttons & 0b11) !== 0) {
-      clearTooltip();
+      if (Math.abs(e.clientX - downX) > CLICK_SLOP || Math.abs(e.clientY - downY) > CLICK_SLOP) {
+        dragging = true;
+      }
+      clearTooltip(); // suppress tooltip mid-orbit
       return;
     }
     pointerActive = true;
-    pick(e.clientX, e.clientY);
+    hover(e.clientX, e.clientY);
   });
 
   dom.addEventListener('pointerleave', clearTooltip);
-  dom.addEventListener('pointerdown', clearTooltip);
 
-  // Touch: tap to identify, then the tooltip lingers until the next interaction.
-  dom.addEventListener(
-    'pointerup',
-    (e) => {
-      if (e.pointerType === 'touch') {
-        pick(e.clientX, e.clientY);
-      }
-    },
-    { passive: true },
-  );
+  dom.addEventListener('pointerup', (e) => {
+    const moved = Math.abs(e.clientX - downX) > CLICK_SLOP || Math.abs(e.clientY - downY) > CLICK_SLOP;
+    if (!dragging && !moved) {
+      select(e.clientX, e.clientY);
+      if (e.pointerType === 'touch') hover(e.clientX, e.clientY);
+    }
+    dragging = false;
+  });
 
   return {
     controls,
     setUnits(value: boolean) {
       useLightYears = value;
-      // Refresh a visible tooltip in the new units.
       if (pointerActive && hovered && !tooltipEl.hidden) {
         renderTooltip(hovered, lastClientX, lastClientY);
       }

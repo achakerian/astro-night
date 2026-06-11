@@ -90,6 +90,28 @@ export function parsecsToLightYears(pc: number): number {
   return pc * LY_PER_PC;
 }
 
+/**
+ * Rough effective temperature (K) from BP−RP, using Ballesteros' colour–temp
+ * relation with bp_rp as a stand-in for B−V. Approximate, for display only.
+ */
+export function tempFromBpRp(bpRp: number | null): number | null {
+  if (bpRp == null) return null;
+  const x = 0.92 * bpRp;
+  const t = 4600 * (1 / (x + 1.7) + 1 / (x + 0.62));
+  return Math.round(t / 50) * 50; // round to nearest 50 K
+}
+
+/** Approximate Morgan–Keenan spectral class letter from BP−RP. */
+export function spectralClassFromBpRp(bpRp: number | null): string {
+  if (bpRp == null) return '—';
+  if (bpRp < -0.02) return 'B';
+  if (bpRp < 0.45) return 'A';
+  if (bpRp < 0.78) return 'F';
+  if (bpRp < 0.98) return 'G';
+  if (bpRp < 1.45) return 'K';
+  return 'M';
+}
+
 /** Angular separation in degrees between two (ra,dec) points, degrees in/out. */
 export function angularSeparationDeg(ra1: number, dec1: number, ra2: number, dec2: number): number {
   const r1 = ra1 * DEG2RAD;

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import './style.css';
+import { DetailsPanel } from './details';
 import { loadStars } from './gaia';
-import { setupInteraction } from './interaction';
+import { setupInteraction, type Selection } from './interaction';
 import { StarField } from './stars';
 import { Ui } from './ui';
 
@@ -36,7 +37,37 @@ async function main(): Promise<void> {
   scene.add(field.object);
 
   const tooltipEl = document.getElementById('tooltip') as HTMLElement;
-  const interaction = setupInteraction(renderer, camera, field, tooltipEl);
+
+  // ---- Selection: fly-to camera animation + follow the selected star ----
+  const tmp = new THREE.Vector3();
+  const flight = new CameraFlight(camera);
+  let selected: Selection = null;
+  const followPos = new THREE.Vector3();
+
+  function focusTarget(sel: Exclude<Selection, null>): THREE.Vector3 {
+    if (sel === 'sun') return tmp.set(0, 0, 0);
+    return field.getPosition(sel, tmp);
+  }
+
+  function deselect(): void {
+    selected = null;
+    details.hide();
+  }
+
+  function selectObject(sel: Selection): void {
+    if (sel === null) return; // clicking empty space keeps the current selection
+    selected = sel;
+    const target = focusTarget(sel).clone();
+    followPos.copy(target);
+    // Dolly toward the object along the current view direction.
+    const dist = sel === 'sun' ? 7 : 4;
+    flight.flyTo(target, dist, interaction.controls.target);
+    if (sel === 'sun') details.showSun();
+    else details.showStar(field.stars[sel]);
+  }
+
+  const details = new DetailsPanel(() => deselect());
+  const interaction = setupInteraction(renderer, camera, field, tooltipEl, selectObject);
 
   // ---- UI ---------------------------------------------------------------
   // Slider recompute is throttled to one update per animation frame: the
@@ -49,11 +80,16 @@ async function main(): Promise<void> {
       pendingYear = years;
     },
     onReset: () => {
+      deselect();
+      flight.cancel();
       interaction.controls.target.set(0, 0, 0);
       camera.position.copy(INITIAL_CAM);
       interaction.controls.update();
     },
-    onUnitsChange: (useLy) => interaction.setUnits(useLy),
+    onUnitsChange: (useLy) => {
+      interaction.setUnits(useLy);
+      details.setUnits(useLy);
+    },
   });
 
   ui.setStatus(source);
@@ -72,7 +108,24 @@ async function main(): Promise<void> {
       appliedYear = pendingYear;
     }
 
-    interaction.controls.update();
+    if (flight.active) {
+      // During a fly-to, drive camera + target directly (no orbit damping).
+      flight.update(dt, interaction.controls.target);
+      if (!flight.active && selected !== null && selected !== 'sun') {
+        followPos.copy(field.getPosition(selected, tmp)); // resync after arrival
+      }
+    } else {
+      // Follow a moving selected star: translate the whole rig by its drift so
+      // it stays centred even while the time slider runs.
+      if (selected !== null && selected !== 'sun') {
+        const live = field.getPosition(selected, tmp);
+        camera.position.add(live.clone().sub(followPos));
+        interaction.controls.target.add(live.clone().sub(followPos));
+        followPos.copy(live);
+      }
+      interaction.controls.update();
+    }
+
     renderer.render(scene, camera);
   }
   frame();
@@ -85,6 +138,53 @@ async function main(): Promise<void> {
   });
 
   console.info(`[astro-night] ${stars.length} stars loaded (${source}).`);
+}
+
+/**
+ * Smooth camera fly-to. Lerps both the camera position and the orbit target
+ * over a short duration; OrbitControls picks up cleanly afterwards because its
+ * update() re-derives state from the live camera/target each frame.
+ */
+class CameraFlight {
+  active = false;
+  private t = 0;
+  private readonly dur = 0.8;
+  private readonly fromPos = new THREE.Vector3();
+  private readonly toPos = new THREE.Vector3();
+  private readonly fromTarget = new THREE.Vector3();
+  private readonly toTarget = new THREE.Vector3();
+  private readonly dir = new THREE.Vector3();
+
+  constructor(private readonly camera: THREE.PerspectiveCamera) {}
+
+  flyTo(targetPos: THREE.Vector3, dist: number, currentTarget: THREE.Vector3): void {
+    this.fromPos.copy(this.camera.position);
+    this.fromTarget.copy(currentTarget);
+    // Keep the current viewing angle: approach along camera→target direction.
+    this.dir.copy(this.fromPos).sub(targetPos);
+    if (this.dir.lengthSq() < 1e-6) this.dir.set(0, 0.3, 1);
+    this.dir.normalize();
+    this.toTarget.copy(targetPos);
+    this.toPos.copy(targetPos).addScaledVector(this.dir, dist);
+    this.t = 0;
+    this.active = true;
+  }
+
+  update(dt: number, controlsTarget: THREE.Vector3): void {
+    this.t = Math.min(1, this.t + dt / this.dur);
+    const e = easeInOut(this.t);
+    this.camera.position.lerpVectors(this.fromPos, this.toPos, e);
+    controlsTarget.lerpVectors(this.fromTarget, this.toTarget, e);
+    if (this.t >= 1) this.active = false;
+  }
+
+  cancel(): void {
+    this.active = false;
+  }
+}
+
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
 
 /** Thousands of dim, static far-away points for depth — purely decorative. */
