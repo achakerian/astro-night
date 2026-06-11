@@ -11,6 +11,12 @@
   box-sizing: border-box;
 }
 
+/* `hidden` must always win over component display rules (e.g. the inspector's
+   `display: flex`), otherwise hidden overlays stay visible. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -228,6 +234,11 @@ body {
   background: rgba(240, 170, 70, 0.16);
   color: #f4ba5e;
   box-shadow: 0 0 0 1px rgba(240, 170, 70, 0.35) inset;
+}
+.chip--bundled {
+  background: rgba(109, 168, 255, 0.16);
+  color: #8fc0ff;
+  box-shadow: 0 0 0 1px rgba(109, 168, 255, 0.35) inset;
 }
 
 /* ---- Inspector (full-screen split view) --------------------------------- */

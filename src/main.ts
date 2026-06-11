@@ -120,7 +120,7 @@ async function main(): Promise<void> {
     },
   });
 
-  ui.setStatus(source, reason);
+  ui.setStatus(source, reason, stars.length);
   ui.hideLoading();
 
   // Inspectable from the console: `__astroNight`

@@ -29,9 +29,21 @@ async function main(): Promise<void> {
     QUERY: ADQL,
   });
 
-  console.log('Querying Gaia DR3 …');
+  console.log('Querying Gaia DR3 … (the sync endpoint can take 10–60 s; Node waits patiently)');
 
-  const res = await fetch(TAP_URL, { method: 'POST', body });
+  // Heartbeat so a slow response doesn't look like a hang.
+  let secs = 0;
+  const heartbeat = setInterval(() => {
+    secs += 5;
+    console.log(`  … still waiting (${secs}s)`);
+  }, 5000);
+
+  let res: Response;
+  try {
+    res = await fetch(TAP_URL, { method: 'POST', body });
+  } finally {
+    clearInterval(heartbeat);
+  }
   if (!res.ok) {
     throw new Error(`Gaia TAP HTTP ${res.status}: ${await res.text()}`);
   }

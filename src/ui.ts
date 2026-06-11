@@ -98,11 +98,16 @@ export class Ui {
     this.playBtn.classList.remove('is-playing');
   }
 
-  setStatus(source: DataSource, reason?: string): void {
+  setStatus(source: DataSource, reason?: string, count = 0): void {
     if (source === 'live') {
       this.chip.textContent = 'Live Gaia data';
       this.chip.className = 'chip chip--live';
       this.chip.title = 'Connected to the ESA Gaia archive.';
+    } else if (count >= 1000) {
+      // A full pre-baked snapshot, not the tiny curated sample.
+      this.chip.textContent = 'Gaia DR3 (bundled)';
+      this.chip.className = 'chip chip--bundled';
+      this.chip.title = `Showing a committed Gaia DR3 snapshot (${count.toLocaleString('en-US')} stars).`;
     } else {
       this.chip.textContent = 'Offline sample data';
       this.chip.className = 'chip chip--offline';
