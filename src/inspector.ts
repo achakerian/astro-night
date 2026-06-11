@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import type { Star } from './types';
 import {
-  colorFromBpRp,
   parsecsToLightYears,
   spectralClassFromBpRp,
   tempFromBpRp,
@@ -168,24 +167,49 @@ export class StarInspector {
 
   openStar(star: Star): void {
     this.current = star;
-    const rgb = new Float32Array(3);
-    colorFromBpRp(star.bpRp, rgb, 0);
-    const temp = tempFromBpRp(star.bpRp) ?? 5200;
-    const spots = THREE.MathUtils.clamp((5800 - temp) / 3200, 0.05, 0.85);
-
-    // Every catalogue object is a star → detailed flaring star, coloured by type.
-    this.flareMesh.visible = true;
-    this.applyStarSurface(rgb[0], rgb[1], rgb[2], spots);
-    this.flareMat.uniforms.uColor.value.setRGB(
-      Math.min(1, rgb[0] * 0.8 + 0.25),
-      rgb[1] * 0.6 + 0.12,
-      rgb[2] * 0.45 + 0.04,
-    );
-    this.coronaMat.uniforms.uColor.value.setRGB(rgb[0] * 0.6 + 0.4, rgb[1] * 0.6 + 0.4, rgb[2] * 0.6 + 0.4);
-    this.coronaMat.uniforms.uIntensity.value = 1.0;
-
+    // TerraGenesis-style stylised world (the Sun, separately, stays a star).
+    this.body.material = this.planetMat;
+    this.flareMesh.visible = false;
+    this.selToken++; // cancel any pending sun-texture swap
+    this.configurePlanet(star);
     this.renderStarSpecs(star);
     this.show();
+  }
+
+  /** Set planet biome + atmosphere from the star's temperature. */
+  private configurePlanet(star: Star): void {
+    const u = this.planetMat.uniforms;
+    const seed = hashStr(star.sourceId) % 1000;
+    const temp = tempFromBpRp(star.bpRp) ?? 5200;
+
+    let veg: [number, number, number];
+    let iceAmount: number;
+    let hasWater: number;
+    let seaLevel = 0.46 + ((seed % 17) / 17) * 0.1 - 0.05;
+    let atmo: [number, number, number] = [0.4, 0.7, 1.0]; // bright cyan-blue
+
+    if (temp < 3800) {
+      veg = [0.36, 0.5, 0.55]; iceAmount = 0.7; hasWater = 1; atmo = [0.5, 0.75, 1.0];
+    } else if (temp < 5200) {
+      veg = [0.24, 0.5, 0.26]; iceAmount = 0.45; hasWater = 1;
+    } else if (temp < 7000) {
+      veg = [0.3, 0.56, 0.24]; iceAmount = 0.32; hasWater = 1;
+    } else if (temp < 9500) {
+      veg = [0.6, 0.48, 0.26]; iceAmount = 0.16; hasWater = 1; seaLevel -= 0.08; atmo = [0.8, 0.7, 0.5];
+    } else {
+      veg = [0.5, 0.26, 0.14]; iceAmount = 0.0; hasWater = 0; atmo = [1.0, 0.5, 0.25];
+    }
+
+    u.uSeed.value = seed * 1.37;
+    u.uSeaLevel.value = seaLevel;
+    u.uVegTint.value.setRGB(veg[0], veg[1], veg[2]);
+    u.uIceAmount.value = iceAmount;
+    u.uHasWater.value = hasWater;
+    u.uLava.value = hasWater === 0 ? 1 : 0;
+
+    // Prominent TerraGenesis-style glowing atmosphere ring.
+    this.coronaMat.uniforms.uColor.value.setRGB(atmo[0], atmo[1], atmo[2]);
+    this.coronaMat.uniforms.uIntensity.value = 1.45;
   }
 
   /**
@@ -360,6 +384,15 @@ const EXPLAIN = {
   skyPos: 'Right ascension and declination — the sky’s longitude and latitude — locating the star on the celestial sphere.',
 } as const;
 
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
 function specRows(items: SpecItem[]): string {
   return items
     .map((it) => {
@@ -416,23 +449,21 @@ function makePlanetMaterial(): THREE.ShaderMaterial {
       ${NOISE_GLSL}
       void main(){
         vec3 p = normalize(vObj);
-        vec3 sp = p * 1.9 + vec3(uSeed);
-        // More octaves at higher frequency → finer, less blobby coastlines.
-        float h = fbm(sp * 2.0) * 0.52 + fbm(sp * 5.0) * 0.30 + fbm(sp * 11.0) * 0.18;
+        vec3 sp = p * 1.5 + vec3(uSeed);
+        // Few, low-frequency octaves → smooth, clean continents (not grainy).
+        float h = vnoise(sp * 1.4) * 0.55 + vnoise(sp * 3.0) * 0.30 + vnoise(sp * 6.5) * 0.15;
 
         float lat = abs(p.y);
-        float capH = lat + fbm(sp * 8.0) * 0.06;
+        float capH = lat + vnoise(sp * 4.0) * 0.05;
         float capAA = fwidth(capH) + 0.004;
-        float capEdge = 0.72 - uIceAmount * 0.4;
+        float capEdge = 0.74 - uIceAmount * 0.42;
         float caps = smoothstep(capEdge - capAA, capEdge + capAA, capH);
 
         vec3 col;
-        float water = 0.0;
         if (uLava > 0.5) {
-          // molten world: glowing cracks of lava through dark rock
-          float lava = smoothstep(0.45, 0.62, fbm(sp*3.0 + vec3(uTime*0.05)));
-          vec3 rock = vec3(0.18, 0.10, 0.09);
-          vec3 hot  = mix(vec3(0.9,0.25,0.05), vec3(1.0,0.85,0.3), lava);
+          float lava = smoothstep(0.45, 0.62, vnoise(sp*3.0 + vec3(uTime*0.05)));
+          vec3 rock = vec3(0.20, 0.11, 0.10);
+          vec3 hot  = mix(vec3(0.95,0.3,0.06), vec3(1.0,0.85,0.35), lava);
           col = mix(rock, hot, lava);
         } else {
           // Screen-space anti-aliased coastline (smooth at any zoom).
@@ -440,39 +471,32 @@ function makePlanetMaterial(): THREE.ShaderMaterial {
           float landMask = smoothstep(uSeaLevel - aa, uSeaLevel + aa, h);
 
           float depth = clamp((uSeaLevel - h) / max(uSeaLevel, 0.001), 0.0, 1.0);
-          vec3 ocean = mix(vec3(0.06,0.5,0.62), vec3(0.01,0.10,0.32), depth);
+          vec3 ocean = mix(vec3(0.10,0.55,0.72), vec3(0.02,0.20,0.46), depth); // bright TG ocean
 
           float land = clamp((h - uSeaLevel) / (1.0 - uSeaLevel + 0.001), 0.0, 1.0);
-          vec3 landCol = mix(vec3(0.84,0.77,0.55), uVegTint, smoothstep(0.015, 0.13, land));
-          landCol = mix(landCol, vec3(0.42,0.36,0.30), smoothstep(0.42, 0.7, land));
-          landCol = mix(landCol, vec3(0.95,0.96,1.0), smoothstep(0.72, 0.9, land));
+          vec3 landCol = mix(vec3(0.86,0.80,0.58), uVegTint, smoothstep(0.02, 0.16, land));
+          landCol = mix(landCol, vec3(0.50,0.42,0.34), smoothstep(0.45, 0.72, land));
+          landCol = mix(landCol, vec3(0.96,0.97,1.0), smoothstep(0.74, 0.9, land));
 
-          if (uHasWater > 0.5) {
-            col = mix(ocean, landCol, landMask);
-            water = 1.0 - landMask;
-          } else {
-            col = landCol; // dry world: land palette everywhere
-          }
+          col = uHasWater > 0.5 ? mix(ocean, landCol, landMask) : landCol;
         }
-        col = mix(col, vec3(0.96,0.97,1.0), caps);
+        col = mix(col, vec3(0.97,0.98,1.0), caps);
 
-        // soft drifting clouds (skip for molten worlds), also AA'd
+        // subtle drifting clouds, AA'd
         if (uLava < 0.5) {
-          float cl = fbm(sp*2.6 + vec3(uTime*0.02, 0.0, uTime*0.013));
-          float caa = fwidth(cl) + 0.01;
-          float cloud = smoothstep(0.58 - caa, 0.7 + caa, cl);
-          col = mix(col, vec3(1.0), cloud * 0.5);
+          float cl = vnoise(sp*2.2 + vec3(uTime*0.02, 0.0, uTime*0.012));
+          float caa = fwidth(cl) + 0.02;
+          float cloud = smoothstep(0.6 - caa, 0.72 + caa, cl);
+          col = mix(col, vec3(1.0), cloud * 0.45);
         }
 
-        // Soft, even lighting (TerraGenesis-style): the night side stays clearly
-        // visible with a gentle terminator rather than going black.
-        vec3 L = normalize(vec3(0.7, 0.42, 0.55));
+        // Even, gentle lighting with an ambient floor so nothing blows out to
+        // white and the night side stays readable (the TerraGenesis "marble").
+        vec3 L = normalize(vec3(0.6, 0.35, 0.7));
         float diff = max(dot(normalize(vWorldN), L), 0.0);
-        float shade = 0.5 + 0.6 * smoothstep(0.0, 1.0, diff);
-        col *= clamp(shade + uLava * 0.5, 0.0, 1.4);
-        col += water * pow(diff, 28.0) * 0.4; // soft sun-glint on oceans
+        col *= (0.62 + 0.4 * diff) + uLava * 0.4;
 
-        gl_FragColor = vec4(col, 1.0);
+        gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
       }
     `,
   });
@@ -646,7 +670,7 @@ function makeCoronaMaterial(): THREE.ShaderMaterial {
       uniform float uIntensity;
       void main(){
         float ndv = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
-        float rim = pow(1.0 - ndv, 2.6);
+        float rim = pow(1.0 - ndv, 2.0); // wider, more prominent atmosphere ring
         gl_FragColor = vec4(uColor, rim * uIntensity);
       }
     `,
