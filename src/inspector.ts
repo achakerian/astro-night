@@ -168,22 +168,8 @@ export class StarInspector {
     const rgb = new Float32Array(3);
     colorFromBpRp(star.bpRp, rgb, 0);
 
-    if (star.name) {
-      this.renderAsStar(star, rgb);
-    } else {
-      this.renderAsPlanet(star, rgb);
-    }
-
-    // Atmosphere / corona glow, brightened from the star's colour.
-    this.coronaMat.uniforms.uColor.value.setRGB(rgb[0] * 0.6 + 0.4, rgb[1] * 0.6 + 0.4, rgb[2] * 0.6 + 0.4);
-    this.coronaMat.uniforms.uIntensity.value = 1.1;
-
-    this.renderStarSpecs(star);
-    this.show();
-  }
-
-  /** Named, recognisable stars (e.g. Alpha Centauri) → detailed flaring star. */
-  private renderAsStar(star: Star, rgb: Float32Array): void {
+    // Every catalogue object is a star → render it as a detailed flaring star,
+    // coloured by its own spectral type.
     this.body.material = this.starMat;
     this.flareMesh.visible = true;
     this.starMat.uniforms.uColor.value.setRGB(rgb[0], rgb[1], rgb[2]);
@@ -195,13 +181,13 @@ export class StarInspector {
       rgb[1] * 0.6 + 0.12,
       rgb[2] * 0.45 + 0.04,
     );
-  }
 
-  /** Anonymous stars → a hypothetical TerraGenesis world. */
-  private renderAsPlanet(star: Star, _rgb: Float32Array): void {
-    this.body.material = this.planetMat;
-    this.flareMesh.visible = false;
-    this.configurePlanet(star);
+    // Corona glow, brightened from the star's colour.
+    this.coronaMat.uniforms.uColor.value.setRGB(rgb[0] * 0.6 + 0.4, rgb[1] * 0.6 + 0.4, rgb[2] * 0.6 + 0.4);
+    this.coronaMat.uniforms.uIntensity.value = 1.0;
+
+    this.renderStarSpecs(star);
+    this.show();
   }
 
   /** Advance + render the inspector scene (called each frame while open). */
@@ -233,57 +219,6 @@ export class StarInspector {
     this.camera.position.z = FAR_Z;
     this.group.rotation.y = 0;
     this.syncSize(true);
-  }
-
-  /** Pick a plausible world appearance from the star's physical properties. */
-  private configurePlanet(star: Star): void {
-    const u = this.planetMat.uniforms;
-    const seed = hashStr(star.sourceId) % 1000;
-    const temp = tempFromBpRp(star.bpRp) ?? 5200;
-
-    // Biome by temperature: cool → icy ocean world, temperate → green/blue,
-    // warm → savannah, hot → arid/desert, very hot → molten rock (no water).
-    let veg: [number, number, number];
-    let iceAmount: number;
-    let hasWater: number;
-    let seaLevel = 0.46 + ((seed % 17) / 17) * 0.12 - 0.06; // 0.40–0.52 jitter
-
-    if (temp < 3800) {
-      veg = [0.32, 0.46, 0.5];
-      iceAmount = 0.7;
-      hasWater = 1;
-    } else if (temp < 5200) {
-      veg = [0.2, 0.42, 0.22];
-      iceAmount = 0.45;
-      hasWater = 1;
-    } else if (temp < 7000) {
-      veg = [0.26, 0.5, 0.2];
-      iceAmount = 0.32;
-      hasWater = 1;
-    } else if (temp < 9500) {
-      veg = [0.55, 0.42, 0.22];
-      iceAmount = 0.16;
-      hasWater = 1;
-      seaLevel -= 0.1; // drier
-    } else {
-      veg = [0.45, 0.22, 0.12];
-      iceAmount = 0.0;
-      hasWater = 0; // molten / rocky
-    }
-
-    u.uSeed.value = seed * 1.37;
-    u.uSeaLevel.value = seaLevel;
-    u.uVegTint.value.setRGB(veg[0], veg[1], veg[2]);
-    u.uIceAmount.value = iceAmount;
-    u.uHasWater.value = hasWater;
-    u.uLava.value = hasWater === 0 ? 1 : 0;
-
-    // Atmosphere colour: watery worlds get a blue halo, arid worlds a thin
-    // tan one, molten worlds a hot orange glow.
-    if (hasWater === 0) this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.45, 0.2);
-    else if (temp > 7000) this.coronaMat.uniforms.uColor.value.setRGB(0.7, 0.6, 0.45);
-    else this.coronaMat.uniforms.uColor.value.setRGB(0.45, 0.66, 1.0);
-    this.coronaMat.uniforms.uIntensity.value = 0.7;
   }
 
   private syncSize(force = false): void {
@@ -394,15 +329,6 @@ function specRows(items: SpecItem[]): string {
       return `<div class="${cls}"${attrs}><span class="spec__k">${escapeHtml(it.k)}</span><span class="spec__v">${escapeHtml(it.v)}</span></div>`;
     })
     .join('');
-}
-
-function hashStr(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return Math.abs(h);
 }
 
 // ---- shaders --------------------------------------------------------------
