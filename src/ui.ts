@@ -117,6 +117,11 @@ export class Ui {
     }
   }
 
+  /** Reflect the unit choice on the corner checkbox (no event fired). */
+  syncUnits(useLightYears: boolean): void {
+    this.unitsToggle.checked = useLightYears;
+  }
+
   hideLoading(): void {
     this.loading.classList.add('loading--hidden');
     window.setTimeout(() => {

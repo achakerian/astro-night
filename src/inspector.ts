@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import type { Star } from './types';
 import {
-  colorFromBpRp,
   parsecsToLightYears,
   spectralClassFromBpRp,
   tempFromBpRp,
@@ -11,11 +10,16 @@ import {
 const M_SUN_G = 4.67;
 const T_SUN = 5772;
 
+const BASE_Z = 3.0;
+const FAR_Z = 7.6;
+const INTRO_DUR = 1.1; // seconds for the zoom-in
+
 /**
  * Full-screen "inspector": a detailed, slowly rotating render of the selected
- * star on the left (procedural surface + corona, driven by the star's colour
- * and temperature) and its specifications on the right. Has its own little
- * WebGL renderer/scene so it can show the object large and close-up.
+ * object on the left and its specs on the right. Stars are visualised as
+ * Terra-Genesis-style procedural planets (oceans, continents, ice caps,
+ * clouds, atmosphere); the Sun is rendered as a glowing star. The camera zooms
+ * in on open. Has its own little WebGL renderer/scene.
  */
 export class StarInspector {
   private readonly overlay: HTMLElement;
@@ -23,16 +27,19 @@ export class StarInspector {
   private readonly titleEl: HTMLElement;
   private readonly subEl: HTMLElement;
   private readonly bodyEl: HTMLElement;
+  private readonly unitsBtn: HTMLElement;
 
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
+  private readonly planetMat: THREE.ShaderMaterial;
   private readonly starMat: THREE.ShaderMaterial;
   private readonly coronaMat: THREE.ShaderMaterial;
-  private readonly starMesh: THREE.Mesh;
+  private readonly body: THREE.Mesh;
   private readonly group = new THREE.Group();
 
   private time = 0;
+  private introT = 1;
   private canvasW = 0;
   private canvasH = 0;
   private useLightYears = false;
@@ -40,34 +47,38 @@ export class StarInspector {
 
   open = false;
 
-  constructor(onClose: () => void) {
+  constructor(onClose: () => void, onToggleUnits: () => void) {
     this.overlay = byId('inspector');
     this.canvas = byId<HTMLCanvasElement>('inspector-canvas');
     this.titleEl = byId('inspector-title');
     this.subEl = byId('inspector-sub');
     this.bodyEl = byId('inspector-body');
+    this.unitsBtn = byId('inspector-units');
     byId('inspector-close').addEventListener('click', onClose);
+    this.unitsBtn.addEventListener('click', onToggleUnits);
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     this.camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
-    this.camera.position.set(0, 0, 3.2);
+    this.camera.position.set(0, 0, BASE_Z);
 
+    this.planetMat = makePlanetMaterial();
     this.starMat = makeStarSurfaceMaterial();
-    this.starMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 96), this.starMat);
-    this.group.add(this.starMesh);
+    this.body = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 128), this.planetMat);
+    this.group.add(this.body);
 
     this.coronaMat = makeCoronaMaterial();
-    const corona = new THREE.Mesh(new THREE.SphereGeometry(1.35, 48, 48), this.coronaMat);
+    const corona = new THREE.Mesh(new THREE.SphereGeometry(1.3, 48, 48), this.coronaMat);
     this.group.add(corona);
 
-    this.group.rotation.z = 0.25; // slight tilt so rotation reads
+    this.group.rotation.z = 0.32; // axial tilt so ice caps + rotation read
     this.scene.add(this.group);
   }
 
   setUnits(useLightYears: boolean): void {
     this.useLightYears = useLightYears;
+    this.unitsBtn.textContent = useLightYears ? 'Show in parsecs' : 'Show in light-years';
     if (this.current === 'sun') this.renderSunSpecs();
     else if (this.current) this.renderStarSpecs(this.current);
   }
@@ -80,19 +91,20 @@ export class StarInspector {
 
   openSun(): void {
     this.current = 'sun';
-    this.configureAppearance([1.0, 0.93, 0.74], T_SUN, 0.25);
+    // The Sun is a star — render it glowing, not as a planet.
+    this.body.material = this.starMat;
+    this.starMat.uniforms.uColor.value.setRGB(1.0, 0.93, 0.74);
+    this.starMat.uniforms.uSpots.value = 0.25;
+    this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.85, 0.55);
+    this.coronaMat.uniforms.uIntensity.value = 1.0;
     this.renderSunSpecs();
     this.show();
   }
 
   openStar(star: Star): void {
     this.current = star;
-    const rgb = new Float32Array(3);
-    colorFromBpRp(star.bpRp, rgb, 0);
-    const temp = tempFromBpRp(star.bpRp) ?? 5000;
-    // Cooler stars get more/darker spots and stronger granulation.
-    const spots = THREE.MathUtils.clamp((5800 - temp) / 3200, 0, 0.9);
-    this.configureAppearance([rgb[0], rgb[1], rgb[2]], temp, spots);
+    this.body.material = this.planetMat;
+    this.configurePlanet(star);
     this.renderStarSpecs(star);
     this.show();
   }
@@ -102,8 +114,16 @@ export class StarInspector {
     if (!this.open) return;
     this.syncSize();
     this.time += dt;
+    this.planetMat.uniforms.uTime.value = this.time;
     this.starMat.uniforms.uTime.value = this.time;
-    this.group.rotation.y += dt * 0.15;
+    this.group.rotation.y += dt * 0.12;
+
+    if (this.introT < 1) {
+      this.introT = Math.min(1, this.introT + dt / INTRO_DUR);
+      const e = 1 - Math.pow(1 - this.introT, 3); // ease-out cubic
+      this.camera.position.z = FAR_Z + (BASE_Z - FAR_Z) * e;
+    }
+
     this.renderer.render(this.scene, this.camera);
   }
 
@@ -113,17 +133,61 @@ export class StarInspector {
     this.overlay.hidden = false;
     this.open = true;
     this.time = 0;
+    this.introT = 0; // trigger the zoom-in
+    this.camera.position.z = FAR_Z;
     this.group.rotation.y = 0;
     this.syncSize(true);
   }
 
-  private configureAppearance(rgb: [number, number, number], temp: number, spots: number): void {
-    const c = new THREE.Color(rgb[0], rgb[1], rgb[2]);
-    this.starMat.uniforms.uColor.value.copy(c);
-    this.starMat.uniforms.uSpots.value = spots;
-    this.coronaMat.uniforms.uColor.value.copy(c);
-    // Hotter stars: tighter, brighter corona.
-    this.coronaMat.uniforms.uIntensity.value = THREE.MathUtils.clamp(temp / 9000, 0.35, 1.1);
+  /** Pick a plausible world appearance from the star's physical properties. */
+  private configurePlanet(star: Star): void {
+    const u = this.planetMat.uniforms;
+    const seed = hashStr(star.sourceId) % 1000;
+    const temp = tempFromBpRp(star.bpRp) ?? 5200;
+
+    // Biome by temperature: cool → icy ocean world, temperate → green/blue,
+    // warm → savannah, hot → arid/desert, very hot → molten rock (no water).
+    let veg: [number, number, number];
+    let iceAmount: number;
+    let hasWater: number;
+    let seaLevel = 0.46 + ((seed % 17) / 17) * 0.12 - 0.06; // 0.40–0.52 jitter
+
+    if (temp < 3800) {
+      veg = [0.32, 0.46, 0.5];
+      iceAmount = 0.7;
+      hasWater = 1;
+    } else if (temp < 5200) {
+      veg = [0.2, 0.42, 0.22];
+      iceAmount = 0.45;
+      hasWater = 1;
+    } else if (temp < 7000) {
+      veg = [0.26, 0.5, 0.2];
+      iceAmount = 0.32;
+      hasWater = 1;
+    } else if (temp < 9500) {
+      veg = [0.55, 0.42, 0.22];
+      iceAmount = 0.16;
+      hasWater = 1;
+      seaLevel -= 0.1; // drier
+    } else {
+      veg = [0.45, 0.22, 0.12];
+      iceAmount = 0.0;
+      hasWater = 0; // molten / rocky
+    }
+
+    u.uSeed.value = seed * 1.37;
+    u.uSeaLevel.value = seaLevel;
+    u.uVegTint.value.setRGB(veg[0], veg[1], veg[2]);
+    u.uIceAmount.value = iceAmount;
+    u.uHasWater.value = hasWater;
+    u.uLava.value = hasWater === 0 ? 1 : 0;
+
+    // Atmosphere colour: watery worlds get a blue halo, arid worlds a thin
+    // tan one, molten worlds a hot orange glow.
+    if (hasWater === 0) this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.45, 0.2);
+    else if (temp > 7000) this.coronaMat.uniforms.uColor.value.setRGB(0.7, 0.6, 0.45);
+    else this.coronaMat.uniforms.uColor.value.setRGB(0.45, 0.66, 1.0);
+    this.coronaMat.uniforms.uIntensity.value = 0.7;
   }
 
   private syncSize(force = false): void {
@@ -165,8 +229,6 @@ export class StarInspector {
       `${cls === '—' ? 'Unknown class' : `${cls}-type star`} · ` +
       `${this.useLightYears ? `${ly.toFixed(1)} ly` : `${pc.toFixed(1)} pc`} away`;
 
-    // Derived physics (rough, G-band, for display): absolute magnitude →
-    // luminosity → radius via Stefan–Boltzmann.
     const haveMag = Number.isFinite(star.mag) && pc > 0;
     const absMag = haveMag ? star.mag - 5 * Math.log10(pc) + 5 : null;
     const lum = absMag == null ? null : Math.pow(10, (M_SUN_G - absMag) / 2.5);
@@ -210,6 +272,15 @@ function specRows(items: [string, string][]): string {
     .join('');
 }
 
+function hashStr(s: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
 // ---- shaders --------------------------------------------------------------
 
 const NOISE_GLSL = /* glsl */ `
@@ -222,8 +293,88 @@ const NOISE_GLSL = /* glsl */ `
                mix(mix(hash(i+vec3(0,0,1)), hash(i+vec3(1,0,1)), f.x),
                    mix(hash(i+vec3(0,1,1)), hash(i+vec3(1,1,1)), f.x), f.y), f.z);
   }
-  float fbm(vec3 p){ float v=0.0, a=0.5; for(int i=0;i<5;i++){ v+=a*vnoise(p); p*=2.03; a*=0.5; } return v; }
+  float fbm(vec3 p){ float v=0.0, a=0.5; for(int i=0;i<6;i++){ v+=a*vnoise(p); p*=2.04; a*=0.5; } return v; }
 `;
+
+/** Terra-Genesis-style procedural planet: oceans, land, ice caps, clouds. */
+function makePlanetMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uSeed: { value: 0 },
+      uSeaLevel: { value: 0.46 },
+      uVegTint: { value: new THREE.Color(0.2, 0.45, 0.2) },
+      uIceAmount: { value: 0.4 },
+      uHasWater: { value: 1 },
+      uLava: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vObj;
+      varying vec3 vWorldN;
+      void main(){
+        vObj = position;
+        vWorldN = normalize(mat3(modelMatrix) * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec3 vObj;
+      varying vec3 vWorldN;
+      uniform float uTime, uSeed, uSeaLevel, uIceAmount, uHasWater, uLava;
+      uniform vec3 uVegTint;
+      ${NOISE_GLSL}
+      void main(){
+        vec3 p = normalize(vObj);
+        vec3 sp = p * 1.8 + vec3(uSeed);
+        float h = fbm(sp * 1.7) * 0.6 + fbm(sp * 4.5) * 0.4;
+
+        float lat = abs(p.y);
+        float caps = smoothstep(0.74 - uIceAmount*0.4, 0.9 - uIceAmount*0.4, lat + fbm(sp*7.0)*0.07);
+
+        vec3 col;
+        float water = 0.0;
+        if (uLava > 0.5) {
+          // molten world: glowing cracks of lava through dark rock
+          float lava = smoothstep(0.45, 0.62, fbm(sp*3.0 + vec3(uTime*0.05)));
+          vec3 rock = vec3(0.18, 0.10, 0.09);
+          vec3 hot  = mix(vec3(0.9,0.25,0.05), vec3(1.0,0.85,0.3), lava);
+          col = mix(rock, hot, lava);
+        } else if (uHasWater > 0.5 && h < uSeaLevel) {
+          float d = (uSeaLevel - h) / max(uSeaLevel, 0.001);
+          col = mix(vec3(0.0,0.42,0.55), vec3(0.01,0.09,0.30), d);
+          water = 1.0;
+        } else {
+          float land = (h - uSeaLevel) / (1.0 - uSeaLevel + 0.001);
+          vec3 beach = vec3(0.82,0.74,0.52);
+          vec3 rock  = vec3(0.42,0.36,0.30);
+          vec3 snow  = vec3(0.95,0.96,1.0);
+          col = mix(beach, uVegTint, smoothstep(0.02, 0.2, land));
+          col = mix(col, rock, smoothstep(0.45, 0.72, land));
+          col = mix(col, snow, smoothstep(0.78, 0.93, land));
+        }
+        col = mix(col, vec3(0.95,0.97,1.0), caps);
+
+        // drifting clouds (skip for molten worlds)
+        if (uLava < 0.5) {
+          float cloud = smoothstep(0.56, 0.74, fbm(sp*2.6 + vec3(uTime*0.02, 0.0, uTime*0.013)));
+          col = mix(col, vec3(1.0), cloud * 0.55);
+        }
+
+        // day/night lighting (fixed light, planet rotates underneath)
+        vec3 L = normalize(vec3(0.7, 0.42, 0.55));
+        float diff = max(dot(normalize(vWorldN), L), 0.0);
+        float emissive = uLava * 0.6; // lava self-glows on the night side
+        col *= clamp(0.06 + diff + emissive, 0.0, 1.35);
+        col += water * pow(diff, 24.0) * 0.6; // specular sun-glint on oceans
+        // warm terminator band
+        float term = smoothstep(0.0,0.22,diff) * (1.0 - smoothstep(0.22,0.55,diff));
+        col += vec3(0.3,0.14,0.05) * term * 0.35;
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  });
+}
 
 /** Self-luminous star surface: granulation, sunspots, limb darkening. */
 function makeStarSurfaceMaterial(): THREE.ShaderMaterial {
@@ -258,25 +409,19 @@ function makeStarSurfaceMaterial(): THREE.ShaderMaterial {
         float large = fbm(dir*4.0 + vec3(0.0, uTime*0.04, 0.0));
         float fine  = fbm(dir*13.0 + vec3(uTime*0.08, 0.0, 0.0));
         float surface = mix(large, fine, 0.45);
-
         vec3 col = uColor * (0.72 + 0.55*surface);
-        // bright granule cores
         col += uColor * 0.35 * smoothstep(0.72, 1.0, surface);
-        // sunspots in low-noise regions, scaled by spottiness
         float spot = smoothstep(0.52, 0.34, fbm(dir*6.0 + 11.0));
         col *= 1.0 - uSpots * 0.7 * spot;
-
-        // limb darkening
         float ndv = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
         col *= mix(0.4, 1.05, pow(ndv, 0.6));
-
         gl_FragColor = vec4(col, 1.0);
       }
     `,
   });
 }
 
-/** Additive rim-glow corona shell around the star. */
+/** Additive rim-glow shell — corona for stars, atmosphere for planets. */
 function makeCoronaMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     transparent: true,
@@ -284,8 +429,8 @@ function makeCoronaMaterial(): THREE.ShaderMaterial {
     depthWrite: false,
     side: THREE.FrontSide,
     uniforms: {
-      uColor: { value: new THREE.Color(1, 0.9, 0.7) },
-      uIntensity: { value: 0.8 },
+      uColor: { value: new THREE.Color(0.45, 0.66, 1.0) },
+      uIntensity: { value: 0.7 },
     },
     vertexShader: /* glsl */ `
       varying vec3 vNormalV;

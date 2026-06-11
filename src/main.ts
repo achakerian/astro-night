@@ -94,7 +94,20 @@ async function main(): Promise<void> {
     else inspector.openStar(field.stars[sel]);
   }
 
-  const inspector = new StarInspector(() => deselect());
+  // Single source of truth for distance units, kept in sync across the corner
+  // checkbox, the hover tooltip, and the inspector's own toggle button.
+  let useLightYears = false;
+  function applyUnits(value: boolean): void {
+    useLightYears = value;
+    ui.syncUnits(value);
+    interaction.setUnits(value);
+    inspector.setUnits(value);
+  }
+
+  const inspector = new StarInspector(
+    () => deselect(),
+    () => applyUnits(!useLightYears),
+  );
   const interaction = setupInteraction(renderer, camera, field, tooltipEl, selectObject);
 
   // ---- UI ---------------------------------------------------------------
@@ -114,10 +127,7 @@ async function main(): Promise<void> {
       camera.position.copy(INITIAL_CAM);
       interaction.controls.update();
     },
-    onUnitsChange: (useLy) => {
-      interaction.setUnits(useLy);
-      inspector.setUnits(useLy);
-    },
+    onUnitsChange: (useLy) => applyUnits(useLy),
   });
 
   ui.setStatus(source, reason, stars.length);

@@ -296,8 +296,25 @@ body {
   flex-direction: column;
   gap: 9px;
 }
+.inspector__units {
+  align-self: flex-start;
+  margin-top: 16px;
+  appearance: none;
+  border: 1px solid var(--panel-border);
+  background: rgba(40, 52, 84, 0.55);
+  color: var(--text);
+  padding: 7px 13px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.inspector__units:hover {
+  background: rgba(60, 80, 130, 0.7);
+  border-color: var(--accent);
+}
 .inspector__hint {
-  margin-top: 18px;
+  margin-top: 14px;
   font-size: 11px;
   color: var(--text-dim);
 }
