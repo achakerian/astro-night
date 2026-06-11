@@ -3,15 +3,13 @@ import { angularSeparationDeg, distanceParsecs } from './transform';
 
 const TAP_URL = 'https://gea.esac.esa.int/tap-server/tap/sync';
 
-const ADQL = `SELECT TOP 5000
-  source_id, ra, dec, parallax,
-  pmra, pmdec,
-  phot_g_mean_mag, bp_rp
-FROM gaiadr3.gaia_source
-WHERE parallax > 20
-  AND parallax_over_error > 10
-  AND phot_g_mean_mag < 10
-ORDER BY phot_g_mean_mag ASC`;
+// Single-line query: some firewalls/WAFs reset connections on URLs (or bodies)
+// containing encoded newlines, so we keep it on one line.
+const ADQL =
+  'SELECT TOP 5000 source_id, ra, dec, parallax, pmra, pmdec, phot_g_mean_mag, bp_rp ' +
+  'FROM gaiadr3.gaia_source ' +
+  'WHERE parallax > 20 AND parallax_over_error > 10 AND phot_g_mean_mag < 10 ' +
+  'ORDER BY phot_g_mean_mag ASC';
 
 // The Gaia sync TAP query routinely needs 10–20 s (cold cache / server load),
 // so give it real headroom before falling back. Override with ?timeout=<seconds>.
@@ -22,14 +20,14 @@ function asset(path: string): string {
   return `${import.meta.env.BASE_URL}${path}`.replace(/\/{2,}/g, '/');
 }
 
-function buildTapUrl(): string {
-  const params = new URLSearchParams({
+/** Form-encoded TAP request body (POST avoids long, newline-bearing GET URLs). */
+function tapBody(): URLSearchParams {
+  return new URLSearchParams({
     REQUEST: 'doQuery',
     LANG: 'ADQL',
     FORMAT: 'json',
     QUERY: ADQL,
   });
-  return `${TAP_URL}?${params.toString()}`;
 }
 
 /** Map a Gaia TAP JSON payload (or our fallback file) to normalised stars. */
@@ -76,14 +74,15 @@ export function parseGaiaJson(json: GaiaTapJson): Star[] {
 async function fetchLive(timeoutMs: number): Promise<Star[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  const url = buildTapUrl();
   const t0 = performance.now();
-  console.info(`[gaia] live query → ${TAP_URL} (timeout ${timeoutMs} ms)`);
-  console.debug('[gaia] ADQL:\n' + ADQL);
+  console.info(`[gaia] live query (POST) → ${TAP_URL} (timeout ${timeoutMs} ms)`);
+  console.debug('[gaia] ADQL: ' + ADQL);
   try {
-    const res = await fetch(url, {
+    // POST + form body; no custom headers, so it stays a "simple" CORS request.
+    const res = await fetch(TAP_URL, {
+      method: 'POST',
+      body: tapBody(),
       signal: controller.signal,
-      headers: { Accept: 'application/json' },
     });
     const dt = Math.round(performance.now() - t0);
     console.info(`[gaia] response: HTTP ${res.status} ${res.statusText} in ${dt} ms`);

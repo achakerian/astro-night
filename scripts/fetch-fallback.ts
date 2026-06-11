@@ -15,28 +15,23 @@ import { dirname, resolve } from 'node:path';
 
 const TAP_URL = 'https://gea.esac.esa.int/tap-server/tap/sync';
 
-const ADQL = `SELECT TOP 5000
-  source_id, ra, dec, parallax,
-  pmra, pmdec,
-  phot_g_mean_mag, bp_rp
-FROM gaiadr3.gaia_source
-WHERE parallax > 20
-  AND parallax_over_error > 10
-  AND phot_g_mean_mag < 10
-ORDER BY phot_g_mean_mag ASC`;
+const ADQL =
+  'SELECT TOP 5000 source_id, ra, dec, parallax, pmra, pmdec, phot_g_mean_mag, bp_rp ' +
+  'FROM gaiadr3.gaia_source ' +
+  'WHERE parallax > 20 AND parallax_over_error > 10 AND phot_g_mean_mag < 10 ' +
+  'ORDER BY phot_g_mean_mag ASC';
 
 async function main(): Promise<void> {
-  const params = new URLSearchParams({
+  const body = new URLSearchParams({
     REQUEST: 'doQuery',
     LANG: 'ADQL',
     FORMAT: 'json',
     QUERY: ADQL,
   });
 
-  const url = `${TAP_URL}?${params.toString()}`;
   console.log('Querying Gaia DR3 …');
 
-  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  const res = await fetch(TAP_URL, { method: 'POST', body });
   if (!res.ok) {
     throw new Error(`Gaia TAP HTTP ${res.status}: ${await res.text()}`);
   }
