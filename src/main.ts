@@ -20,9 +20,13 @@ async function main(): Promise<void> {
   renderer.setSize(window.innerWidth, window.innerHeight);
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x05060a, 0.006);
+  // Light fog for depth, but thin enough that the whole field stays visible when
+  // you pull the camera back.
+  scene.fog = new THREE.FogExp2(0x05060a, 0.0022);
 
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+  // Near plane small enough to fly right up to a star without clipping; far
+  // plane large enough to keep the backdrop when zoomed all the way out.
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.01, 6000);
   camera.position.copy(INITIAL_CAM);
   camera.lookAt(0, 0, 0);
 

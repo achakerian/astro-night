@@ -30,8 +30,8 @@ export function setupInteraction(
   controls.rotateSpeed = 0.6;
   controls.zoomSpeed = 0.9;
   controls.panSpeed = 0.6;
-  controls.minDistance = 1.5;
-  controls.maxDistance = 400;
+  controls.minDistance = 0.02; // fly right up to / through stars
+  controls.maxDistance = 1200; // and pull far back
 
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
