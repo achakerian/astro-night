@@ -2,6 +2,9 @@ import * as THREE from 'three';
 import type { Star } from './types';
 import { colorFromBpRp, positionAt, sizeFromMag } from './transform';
 
+/** Which subset of stars to show. */
+export type FilterMode = 'all' | 'named' | 'unnamed';
+
 /**
  * Owns the THREE.Points star field plus the Sun marker. Positions live in a
  * BufferGeometry attribute that we rewrite in place when the time slider moves
@@ -15,6 +18,8 @@ export class StarField {
 
   private readonly geometry: THREE.BufferGeometry;
   private readonly positions: Float32Array;
+  private readonly visible: Float32Array;
+  private filterMode: FilterMode = 'all';
 
   constructor(stars: Star[]) {
     this.stars = stars;
@@ -23,6 +28,7 @@ export class StarField {
     this.positions = new Float32Array(n * 3);
     const colors = new Float32Array(n * 3);
     const sizes = new Float32Array(n);
+    this.visible = new Float32Array(n).fill(1);
 
     for (let i = 0; i < n; i++) {
       positionAt(stars[i], 0, this.positions, i * 3);
@@ -34,6 +40,7 @@ export class StarField {
     this.geometry.setAttribute('position', new THREE.BufferAttribute(this.positions, 3));
     this.geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     this.geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+    this.geometry.setAttribute('aVisible', new THREE.BufferAttribute(this.visible, 1));
     this.geometry.computeBoundingSphere();
 
     this.points = new THREE.Points(this.geometry, makeStarMaterial());
@@ -42,6 +49,26 @@ export class StarField {
 
     this.sun = makeSunMarker();
     this.object.add(this.sun);
+  }
+
+  /** Show only all / named / unnamed stars. */
+  setFilter(mode: FilterMode): void {
+    this.filterMode = mode;
+    for (let i = 0; i < this.stars.length; i++) {
+      this.visible[i] = this.computeVisible(i) ? 1 : 0;
+    }
+    (this.geometry.getAttribute('aVisible') as THREE.BufferAttribute).needsUpdate = true;
+  }
+
+  /** Whether star `index` is currently shown (for picking). */
+  isVisible(index: number): boolean {
+    return this.visible[index] === 1;
+  }
+
+  private computeVisible(index: number): boolean {
+    if (this.filterMode === 'named') return !!this.stars[index].name;
+    if (this.filterMode === 'unnamed') return !this.stars[index].name;
+    return true;
   }
 
   /** Current world position of star `index` (read from the live buffer). */
@@ -83,10 +110,17 @@ function makeStarMaterial(): THREE.ShaderMaterial {
     },
     vertexShader: /* glsl */ `
       attribute float size;
+      attribute float aVisible;
       uniform float uScale;
       varying vec3 vColor;
       void main() {
         vColor = color;
+        if (aVisible < 0.5) {
+          // Filtered out: collapse the point and push it off-clip.
+          gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+          gl_PointSize = 0.0;
+          return;
+        }
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         gl_PointSize = size * (uScale / -mv.z);
         gl_PointSize = clamp(gl_PointSize, 1.0, 64.0);
@@ -115,7 +149,7 @@ function makeSunMarker(): THREE.Object3D {
   group.name = 'sun';
 
   const core = new THREE.Mesh(
-    new THREE.SphereGeometry(0.4, 32, 32),
+    new THREE.SphereGeometry(0.22, 32, 32),
     new THREE.MeshBasicMaterial({ color: 0xfff2c4 }),
   );
   core.name = 'sun-core';
@@ -123,6 +157,8 @@ function makeSunMarker(): THREE.Object3D {
 
   // Soft additive halo via a radial-gradient sprite texture. (A plain
   // SpriteMaterial with no map renders as an opaque square — the "yellow box".)
+  // Kept small (~0.7 pc) so it doesn't engulf the nearest stars (Alpha Centauri
+  // is only 1.3 pc away), and made non-pickable so it can't steal their clicks.
   const halo = new THREE.Sprite(
     new THREE.SpriteMaterial({
       map: glowTexture(),
@@ -133,7 +169,8 @@ function makeSunMarker(): THREE.Object3D {
       depthWrite: false,
     }),
   );
-  halo.scale.setScalar(4.5);
+  halo.scale.setScalar(1.4);
+  halo.raycast = () => {}; // only the small core is clickable
   group.add(halo);
 
   return group;

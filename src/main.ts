@@ -131,6 +131,7 @@ async function main(): Promise<void> {
       interaction.controls.update();
     },
     onUnitsChange: (useLy) => applyUnits(useLy),
+    onFilterChange: (mode) => field.setFilter(mode),
   });
 
   ui.hideLoading();

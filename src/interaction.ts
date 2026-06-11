@@ -86,7 +86,10 @@ export function setupInteraction(
     const hits = raycaster.intersectObject(field.points, false);
     if (hits.length === 0) return null;
     hits.sort((a, b) => (a.distanceToRay ?? Infinity) - (b.distanceToRay ?? Infinity));
-    return hits[0].index ?? null;
+    for (const h of hits) {
+      if (h.index != null && field.isVisible(h.index)) return h.index; // skip filtered-out stars
+    }
+    return null;
   }
 
   // ---- Hover tooltip ------------------------------------------------------
@@ -106,7 +109,7 @@ export function setupInteraction(
     setPointer(clientX, clientY);
     const starHits = raycaster.intersectObject(field.points, false);
     starHits.sort((a, b) => (a.distanceToRay ?? Infinity) - (b.distanceToRay ?? Infinity));
-    const starHit = starHits[0] ?? null;
+    const starHit = starHits.find((h) => h.index != null && field.isVisible(h.index)) ?? null;
     const sunHit = raycaster.intersectObject(field.sun, true)[0];
 
     if (sunHit && (!starHit || sunHit.distance < starHit.distance)) {

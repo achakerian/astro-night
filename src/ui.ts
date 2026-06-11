@@ -1,7 +1,10 @@
+import type { FilterMode } from './stars';
+
 export interface UiCallbacks {
   onTimeChange(years: number): void;
   onReset(): void;
   onUnitsChange(useLightYears: boolean): void;
+  onFilterChange(mode: FilterMode): void;
 }
 
 const PLAY_RATE = 4000; // years advanced per real second while playing
@@ -21,7 +24,10 @@ export class Ui {
   private readonly playBtn: HTMLButtonElement;
   private readonly resetBtn: HTMLButtonElement;
   private readonly nowBtn: HTMLButtonElement;
-  private readonly unitsToggle: HTMLInputElement;
+  private readonly featuresToggle: HTMLButtonElement;
+  private readonly featuresPanel: HTMLElement;
+  private readonly filterSeg: HTMLElement;
+  private readonly unitsSeg: HTMLElement;
   private readonly loading: HTMLElement;
 
   private year = 0;
@@ -34,7 +40,10 @@ export class Ui {
     this.playBtn = byId<HTMLButtonElement>('play');
     this.resetBtn = byId<HTMLButtonElement>('reset');
     this.nowBtn = byId<HTMLButtonElement>('now');
-    this.unitsToggle = byId<HTMLInputElement>('units');
+    this.featuresToggle = byId<HTMLButtonElement>('features-toggle');
+    this.featuresPanel = byId('features');
+    this.filterSeg = byId('filter-seg');
+    this.unitsSeg = byId('units-seg');
     this.loading = byId('loading');
 
     this.slider.addEventListener('input', () => {
@@ -48,11 +57,35 @@ export class Ui {
       this.stop();
       this.setYear(0, true);
     });
-    this.unitsToggle.addEventListener('change', () =>
-      this.cb.onUnitsChange(this.unitsToggle.checked),
-    );
+    // Collapsible "Filters & features" section.
+    this.featuresToggle.addEventListener('click', () => {
+      const open = this.featuresPanel.hidden;
+      this.featuresPanel.hidden = !open;
+      this.featuresToggle.setAttribute('aria-expanded', String(open));
+      this.featuresToggle.classList.toggle('is-active', open);
+    });
+
+    // Named/unnamed filter (segmented).
+    this.filterSeg.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-filter]');
+      if (!btn) return;
+      this.setSegActive(this.filterSeg, btn);
+      this.cb.onFilterChange(btn.dataset.filter as FilterMode);
+    });
+
+    // Distance units (segmented).
+    this.unitsSeg.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-units]');
+      if (!btn) return;
+      this.setSegActive(this.unitsSeg, btn);
+      this.cb.onUnitsChange(btn.dataset.units === 'ly');
+    });
 
     this.renderYear();
+  }
+
+  private setSegActive(seg: HTMLElement, active: HTMLElement): void {
+    seg.querySelectorAll('.seg__btn').forEach((b) => b.classList.toggle('is-active', b === active));
   }
 
   /** Advance playback. dt is seconds since the previous frame. */
@@ -94,9 +127,10 @@ export class Ui {
     this.playBtn.classList.remove('is-playing');
   }
 
-  /** Reflect the unit choice on the corner checkbox (no event fired). */
+  /** Reflect the unit choice on the segmented control (no event fired). */
   syncUnits(useLightYears: boolean): void {
-    this.unitsToggle.checked = useLightYears;
+    const sel = this.unitsSeg.querySelector<HTMLElement>(`[data-units="${useLightYears ? 'ly' : 'pc'}"]`);
+    if (sel) this.setSegActive(this.unitsSeg, sel);
   }
 
   hideLoading(): void {

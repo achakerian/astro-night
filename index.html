@@ -58,9 +58,26 @@
       <div class="panel__row panel__row--buttons">
         <button id="reset" class="btn">Reset view</button>
         <button id="now" class="btn">Now (t=0)</button>
-        <label class="unit-toggle">
-          <input id="units" type="checkbox" /> light-years
-        </label>
+        <button id="features-toggle" class="btn btn--toggle" aria-expanded="false">⚙ Filters &amp; features</button>
+      </div>
+
+      <div id="features" class="panel__features" hidden>
+        <div class="feature">
+          <div class="feature__label">Show stars</div>
+          <div class="seg" id="filter-seg">
+            <button class="seg__btn is-active" data-filter="all" type="button">All</button>
+            <button class="seg__btn" data-filter="named" type="button">Named</button>
+            <button class="seg__btn" data-filter="unnamed" type="button">Unnamed</button>
+          </div>
+        </div>
+        <div class="feature">
+          <div class="feature__label">Distance units</div>
+          <div class="seg" id="units-seg">
+            <button class="seg__btn is-active" data-units="pc" type="button">Parsecs</button>
+            <button class="seg__btn" data-units="ly" type="button">Light-years</button>
+          </div>
+          <div class="feature__hint">Sets the distance shown in hover tooltips and the star panel.</div>
+        </div>
       </div>
 
       <p class="panel__hint">
