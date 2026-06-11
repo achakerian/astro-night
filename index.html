@@ -27,10 +27,18 @@
       </aside>
     </div>
 
+    <!-- Wikipedia popup (click a spec row or the object name) -->
+    <div id="wiki" class="wiki" hidden>
+      <div class="wiki__card">
+        <button id="wiki-close" class="wiki__close" aria-label="Close">×</button>
+        <div id="wiki-content" class="wiki__content"></div>
+      </div>
+    </div>
+
     <!-- Loading / boot overlay -->
     <div id="loading" class="loading">
       <div class="loading__spinner"></div>
-      <div class="loading__text">Contacting the Gaia archive…</div>
+      <div class="loading__text">Loading the star map…</div>
     </div>
 
     <!-- Corner control panel -->

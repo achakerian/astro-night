@@ -185,33 +185,30 @@ function applyNames(stars: Star[], named: NamedStar[]): void {
 }
 
 export interface LoadOptions {
-  /** Skip the live attempt entirely (`?offline`). */
-  forceOffline?: boolean;
-  /** Per-attempt timeout in ms (`?timeout=<seconds>`). */
+  /** Attempt a live Gaia query before the bundled data (`?live`). Off by default. */
+  live?: boolean;
+  /** Per-attempt timeout in ms for the live path (`?timeout=<seconds>`). */
   timeoutMs?: number;
   /**
-   * CORS proxy bases to try after the direct request. `false` disables proxies
-   * (`?proxy=0`); a custom base (`?proxy=https://my.proxy/?url=`) replaces them.
+   * CORS proxy bases to try after the direct request (live path only). `false`
+   * disables proxies (`?proxy=0`); a custom base replaces them.
    */
   proxies?: string[] | false;
 }
 
 /**
- * Load the star catalogue. Tries each transport in order — direct Gaia first,
- * then any CORS proxies — and uses the first that returns rows. Falls back to
- * the bundled dataset if all fail. Named-star labels are applied in all cases.
+ * Load the star catalogue. By default this is a fully static load of the
+ * committed dataset — no network. Passing `live` first tries the live Gaia
+ * query (direct, then CORS proxies) and only uses the bundled data if that
+ * fails. Named-star labels are applied in all cases.
  */
 export async function loadStars(opts: LoadOptions = {}): Promise<LoadResult> {
-  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const proxies = opts.proxies === undefined ? DEFAULT_PROXIES : opts.proxies || [];
-
   const named = await fetchNamedStars();
   let reason: string | undefined;
 
-  if (opts.forceOffline) {
-    reason = 'forced offline via ?offline in the URL';
-    console.info('[gaia] ?offline set — skipping live query.');
-  } else {
+  if (opts.live) {
+    const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    const proxies = opts.proxies === undefined ? DEFAULT_PROXIES : opts.proxies || [];
     for (const t of transports(proxies)) {
       try {
         const stars = await fetchVia(t, timeoutMs);
@@ -222,11 +219,11 @@ export async function loadStars(opts: LoadOptions = {}): Promise<LoadResult> {
         console.warn(`[gaia] ⚠️ ${reason}`);
       }
     }
-    console.warn('[gaia] all live transports failed → using bundled fallback.');
+    console.warn('[gaia] all live transports failed → using bundled data.');
   }
 
   const stars = await fetchFallback();
   applyNames(stars, named);
-  console.info(`[gaia] bundled fallback loaded: ${stars.length} stars.`);
+  console.info(`[gaia] bundled catalogue loaded: ${stars.length} stars.`);
   return { stars, source: 'offline', reason };
 }

@@ -104,16 +104,16 @@ export class Ui {
       this.chip.className = 'chip chip--live';
       this.chip.title = 'Connected to the ESA Gaia archive.';
     } else if (count >= 1000) {
-      // A full pre-baked snapshot, not the tiny curated sample.
+      // A full committed catalogue.
       this.chip.textContent = 'Gaia DR3 (bundled)';
       this.chip.className = 'chip chip--bundled';
-      this.chip.title = `Showing a committed Gaia DR3 snapshot (${count.toLocaleString('en-US')} stars).`;
+      this.chip.title = `Committed Gaia DR3 catalogue (${count.toLocaleString('en-US')} stars). No network used.`;
     } else {
-      this.chip.textContent = 'Offline sample data';
-      this.chip.className = 'chip chip--offline';
+      this.chip.textContent = 'Sample data (bundled)';
+      this.chip.className = 'chip chip--bundled';
       this.chip.title = reason
-        ? `Live Gaia query unavailable — ${reason}. Showing bundled sample stars.`
-        : 'Showing bundled sample stars.';
+        ? `Live Gaia query unavailable — ${reason}. Showing the bundled sample.`
+        : `Bundled sample catalogue (${count} stars). No network used.`;
     }
   }
 

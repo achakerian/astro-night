@@ -5,6 +5,15 @@ import {
   spectralClassFromBpRp,
   tempFromBpRp,
 } from './transform';
+import { WikiPopup } from './wiki';
+
+/** One spec row: label, value, and optional hover help + Wikipedia topic. */
+interface SpecItem {
+  k: string;
+  v: string;
+  explain?: string;
+  wiki?: string;
+}
 
 /** Absolute G magnitude of the Sun, for luminosity estimates. */
 const M_SUN_G = 4.67;
@@ -38,6 +47,9 @@ export class StarInspector {
   private readonly body: THREE.Mesh;
   private readonly group = new THREE.Group();
 
+  private readonly wiki = new WikiPopup();
+  private readonly tip: HTMLElement;
+
   private time = 0;
   private introT = 1;
   private canvasW = 0;
@@ -56,6 +68,40 @@ export class StarInspector {
     this.unitsBtn = byId('inspector-units');
     byId('inspector-close').addEventListener('click', onClose);
     this.unitsBtn.addEventListener('click', onToggleUnits);
+
+    // Hover tooltip for spec explanations.
+    this.tip = document.createElement('div');
+    this.tip.className = 'tooltip spec-tip';
+    this.tip.hidden = true;
+    this.overlay.appendChild(this.tip);
+
+    // Row interactions (delegated, since rows are re-rendered each open):
+    // hover → explanation tooltip, click → Wikipedia popup for the topic.
+    this.bodyEl.addEventListener('pointermove', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('.spec[data-explain]');
+      if (row) {
+        this.tip.textContent = row.dataset.explain ?? '';
+        this.tip.style.left = `${e.clientX}px`;
+        this.tip.style.top = `${e.clientY}px`;
+        this.tip.hidden = false;
+      } else {
+        this.tip.hidden = true;
+      }
+    });
+    this.bodyEl.addEventListener('pointerleave', () => (this.tip.hidden = true));
+    this.bodyEl.addEventListener('click', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('.spec[data-wiki]');
+      if (row?.dataset.wiki) {
+        this.tip.hidden = true;
+        void this.wiki.show(row.dataset.wiki);
+      }
+    });
+
+    // Clicking the object's name opens its own Wikipedia article.
+    this.titleEl.addEventListener('click', () => {
+      const w = this.titleEl.dataset.wiki;
+      if (w) void this.wiki.show(w);
+    });
 
     this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas, antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -204,21 +250,31 @@ export class StarInspector {
 
   private renderSunSpecs(): void {
     this.titleEl.textContent = 'The Sun';
+    this.titleEl.dataset.wiki = 'Sun';
+    this.titleEl.classList.add('inspector__title--link');
     this.subEl.textContent = 'G2V · main-sequence · ≈ 4.6 Gyr old';
     this.bodyEl.innerHTML = specRows([
-      ['Spectral class', 'G2V (yellow dwarf)'],
-      ['Distance', '0 — you are here'],
-      ['Apparent magnitude', '≈ −26.7 (from Earth)'],
-      ['Absolute magnitude', `${M_SUN_G.toFixed(2)} (G)`],
-      ['Surface temperature', `≈ ${T_SUN.toLocaleString('en-US')} K`],
-      ['Luminosity', '1 L☉ (by definition)'],
-      ['Radius', '1 R☉ ≈ 696,000 km'],
-      ['Mass', '1 M☉ ≈ 1.989 × 10³⁰ kg'],
+      { k: 'Spectral class', v: 'G2V (yellow dwarf)', explain: EXPLAIN.spectral, wiki: 'Stellar_classification' },
+      { k: 'Distance', v: '0 — you are here', explain: EXPLAIN.distance, wiki: 'Parsec' },
+      { k: 'Apparent magnitude', v: '≈ −26.7 (from Earth)', explain: EXPLAIN.appMag, wiki: 'Apparent_magnitude' },
+      { k: 'Absolute magnitude', v: `${M_SUN_G.toFixed(2)} (G)`, explain: EXPLAIN.absMag, wiki: 'Absolute_magnitude' },
+      { k: 'Surface temperature', v: `≈ ${T_SUN.toLocaleString('en-US')} K`, explain: EXPLAIN.temp, wiki: 'Effective_temperature' },
+      { k: 'Luminosity', v: '1 L☉ (by definition)', explain: EXPLAIN.lum, wiki: 'Solar_luminosity' },
+      { k: 'Radius', v: '1 R☉ ≈ 696,000 km', explain: EXPLAIN.radius, wiki: 'Solar_radius' },
+      { k: 'Mass', v: '1 M☉ ≈ 1.989 × 10³⁰ kg', explain: 'The Sun’s mass, the standard unit for stellar masses (M☉).', wiki: 'Solar_mass' },
     ]);
   }
 
   private renderStarSpecs(star: Star): void {
     this.titleEl.textContent = star.name ?? 'Unnamed star';
+    // Named stars link to their own Wikipedia article; unnamed ones don't.
+    if (star.name) {
+      this.titleEl.dataset.wiki = star.name;
+      this.titleEl.classList.add('inspector__title--link');
+    } else {
+      delete this.titleEl.dataset.wiki;
+      this.titleEl.classList.remove('inspector__title--link');
+    }
 
     const cls = spectralClassFromBpRp(star.bpRp);
     const temp = tempFromBpRp(star.bpRp);
@@ -240,17 +296,17 @@ export class StarInspector {
       : `${pc.toFixed(2)} pc (${ly.toFixed(2)} ly)`;
 
     this.bodyEl.innerHTML = specRows([
-      ['Spectral class', cls === '—' ? 'unknown' : `${cls}-type`],
-      ['Distance', dist],
-      ['Apparent magnitude', haveMag ? `${star.mag.toFixed(2)} (G)` : '—'],
-      ['Absolute magnitude', absMag == null ? '—' : `${absMag.toFixed(2)} (G)`],
-      ['Est. temperature', temp ? `≈ ${temp.toLocaleString('en-US')} K` : '—'],
-      ['Est. luminosity', lum == null ? '—' : `≈ ${fmtRatio(lum)} L☉`],
-      ['Est. radius', radius == null ? '—' : `≈ ${fmtRatio(radius)} R☉`],
-      ['Colour index (BP−RP)', star.bpRp == null ? '—' : star.bpRp.toFixed(2)],
-      ['Proper motion', `${totalPm.toFixed(0)} mas/yr`],
-      ['  ↳ RA / Dec', `${star.pmra.toFixed(0)} / ${star.pmdec.toFixed(0)} mas/yr`],
-      ['Sky position', `RA ${star.ra.toFixed(2)}°, Dec ${star.dec.toFixed(2)}°`],
+      { k: 'Spectral class', v: cls === '—' ? 'unknown' : `${cls}-type`, explain: EXPLAIN.spectral, wiki: 'Stellar_classification' },
+      { k: 'Distance', v: dist, explain: EXPLAIN.distance, wiki: 'Parsec' },
+      { k: 'Apparent magnitude', v: haveMag ? `${star.mag.toFixed(2)} (G)` : '—', explain: EXPLAIN.appMag, wiki: 'Apparent_magnitude' },
+      { k: 'Absolute magnitude', v: absMag == null ? '—' : `${absMag.toFixed(2)} (G)`, explain: EXPLAIN.absMag, wiki: 'Absolute_magnitude' },
+      { k: 'Est. temperature', v: temp ? `≈ ${temp.toLocaleString('en-US')} K` : '—', explain: EXPLAIN.temp, wiki: 'Effective_temperature' },
+      { k: 'Est. luminosity', v: lum == null ? '—' : `≈ ${fmtRatio(lum)} L☉`, explain: EXPLAIN.lum, wiki: 'Luminosity' },
+      { k: 'Est. radius', v: radius == null ? '—' : `≈ ${fmtRatio(radius)} R☉`, explain: EXPLAIN.radius, wiki: 'Solar_radius' },
+      { k: 'Colour index (BP−RP)', v: star.bpRp == null ? '—' : star.bpRp.toFixed(2), explain: EXPLAIN.color, wiki: 'Color_index' },
+      { k: 'Proper motion', v: `${totalPm.toFixed(0)} mas/yr`, explain: EXPLAIN.pm, wiki: 'Proper_motion' },
+      { k: '  ↳ RA / Dec', v: `${star.pmra.toFixed(0)} / ${star.pmdec.toFixed(0)} mas/yr`, explain: EXPLAIN.pmComponents, wiki: 'Proper_motion' },
+      { k: 'Sky position', v: `RA ${star.ra.toFixed(2)}°, Dec ${star.dec.toFixed(2)}°`, explain: EXPLAIN.skyPos, wiki: 'Equatorial_coordinate_system' },
     ]);
   }
 }
@@ -263,12 +319,30 @@ function fmtRatio(v: number): string {
   return v.toExponential(1);
 }
 
-function specRows(items: [string, string][]): string {
+/** Short, plain-language explanations shown on hover for each spec row. */
+const EXPLAIN = {
+  spectral: 'A star’s class (O B A F G K M), ordered hottest to coolest, set by its temperature and spectral lines.',
+  distance: 'How far away the star is. 1 parsec ≈ 3.26 light-years; a light-year is the distance light travels in a year.',
+  appMag: 'How bright the star looks from Earth (Gaia G band). Smaller — even negative — means brighter.',
+  absMag: 'How bright the star would appear from a standard 10 parsecs: its true brightness on the magnitude scale.',
+  temp: 'The star’s surface (effective) temperature in kelvin, estimated here from its colour.',
+  lum: 'Total energy the star radiates, relative to the Sun (L☉). Estimated from its brightness and distance.',
+  radius: 'The star’s physical size relative to the Sun (R☉), inferred from its luminosity and temperature.',
+  color: 'The blue minus red Gaia magnitude. Larger values mean a redder, cooler star; near zero is white-blue.',
+  pm: 'How fast the star drifts across the sky each year, in milliarcseconds per year (1 mas = 1/3,600,000°).',
+  pmComponents: 'The proper motion split into east–west (RA) and north–south (Dec) components.',
+  skyPos: 'Right ascension and declination — the sky’s longitude and latitude — locating the star on the celestial sphere.',
+} as const;
+
+function specRows(items: SpecItem[]): string {
   return items
-    .map(
-      ([k, v]) =>
-        `<div class="spec"><span class="spec__k">${escapeHtml(k)}</span><span class="spec__v">${escapeHtml(v)}</span></div>`,
-    )
+    .map((it) => {
+      const cls = it.wiki ? 'spec spec--link' : 'spec';
+      const attrs =
+        (it.explain ? ` data-explain="${escapeAttr(it.explain)}"` : '') +
+        (it.wiki ? ` data-wiki="${escapeAttr(it.wiki)}"` : '');
+      return `<div class="${cls}"${attrs}><span class="spec__k">${escapeHtml(it.k)}</span><span class="spec__v">${escapeHtml(it.v)}</span></div>`;
+    })
     .join('');
 }
 
@@ -466,4 +540,8 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!,
   );
+}
+
+function escapeAttr(s: string): string {
+  return s.replace(/[&"<>]/g, (c) => ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' })[c]!);
 }

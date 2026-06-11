@@ -31,7 +31,9 @@ async function main(): Promise<void> {
 
   // ---- Load data (live Gaia → bundled fallback) -------------------------
   const params = new URLSearchParams(location.search);
-  const forceOffline = params.has('offline');
+  // Static by default: the committed catalogue loads with no network. Opt into
+  // a live Gaia query with ?live (kept for when the archive is healthy).
+  const wantLive = params.has('live');
   const timeoutSec = Number(params.get('timeout'));
   const timeoutMs = Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : undefined;
 
@@ -41,22 +43,23 @@ async function main(): Promise<void> {
   if (proxyParam === '0' || proxyParam === 'off') proxies = false;
   else if (proxyParam) proxies = [proxyParam];
 
-  // While the (potentially slow) live query runs, count up on the overlay so a
-  // long Gaia response doesn't look like a hang.
+  // Only the (slow) live path needs an elapsed-time countdown.
   const loadingText = document.querySelector<HTMLElement>('.loading__text');
   let elapsed = 0;
-  const ticker = window.setInterval(() => {
-    elapsed += 1;
-    if (loadingText && !forceOffline) {
-      loadingText.textContent = `Contacting the Gaia archive… ${elapsed}s (this can take 10–20s)`;
-    }
-  }, 1000);
+  const ticker = wantLive
+    ? window.setInterval(() => {
+        elapsed += 1;
+        if (loadingText) {
+          loadingText.textContent = `Contacting the Gaia archive… ${elapsed}s (this can take 10–20s)`;
+        }
+      }, 1000)
+    : undefined;
 
   let result;
   try {
-    result = await loadStars({ forceOffline, timeoutMs, proxies });
+    result = await loadStars({ live: wantLive, timeoutMs, proxies });
   } finally {
-    window.clearInterval(ticker);
+    if (ticker !== undefined) window.clearInterval(ticker);
   }
   const { stars, source, reason } = result;
 
