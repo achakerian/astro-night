@@ -29,20 +29,6 @@ const INTRO_DUR = 1.1; // seconds for the zoom-in
  * mapped deterministically to one of these by a hash of its id, so the same
  * star always shows the same world while the set as a whole stays varied.
  */
-// Texture maps used only for HD surface *detail* (relief, bands, craters); the
-// alien-planet shader discards their colour and recolours by the star's hue, so
-// none read as a recognisable solar-system body. Earth is deliberately omitted.
-const DETAIL_TEXTURES = [
-  '2k_mercury.jpg',
-  '2k_venus_surface.jpg',
-  '2k_mars.jpg',
-  '2k_jupiter.jpg',
-  '2k_saturn.jpg',
-  '2k_uranus.jpg',
-  '2k_neptune.jpg',
-  '2k_moon.jpg',
-];
-
 /**
  * Full-screen "inspector": a detailed, slowly rotating render of the selected
  * object on the left and its specs on the right. Stars are visualised as
@@ -64,13 +50,10 @@ export class StarInspector {
   private readonly planetMat: THREE.ShaderMaterial;
   private readonly starMat: THREE.ShaderMaterial;
   private readonly coronaMat: THREE.ShaderMaterial;
-  private readonly alienMat = makeAlienPlanetMaterial();
+  private readonly flareMat = makeSunFlareMaterial();
+  private flareMesh!: THREE.Mesh;
   private readonly body: THREE.Mesh;
   private readonly group = new THREE.Group();
-
-  private readonly texLoader = new THREE.TextureLoader();
-  private readonly texCache = new Map<string, Promise<THREE.Texture>>();
-  private selToken = 0;
 
   private readonly wiki = new WikiPopup();
   private readonly tip: HTMLElement;
@@ -144,6 +127,11 @@ export class StarInspector {
     const corona = new THREE.Mesh(new THREE.SphereGeometry(1.5, 48, 48), this.coronaMat);
     this.group.add(corona);
 
+    // Animated solar-flare / prominence shell — shown only for the Sun.
+    this.flareMesh = new THREE.Mesh(new THREE.SphereGeometry(1.62, 96, 96), this.flareMat);
+    this.flareMesh.visible = false;
+    this.group.add(this.flareMesh);
+
     this.group.rotation.z = 0.32; // axial tilt so surface + rotation read
     this.scene.add(this.group);
   }
@@ -158,15 +146,14 @@ export class StarInspector {
   close(): void {
     this.open = false;
     this.current = null;
-    this.selToken++; // cancel any in-flight texture swap
     this.overlay.hidden = true;
   }
 
   openSun(): void {
     this.current = 'sun';
-    this.selToken++; // invalidate any pending planet-texture swap
-    // The Sun is a star — render it glowing, not as a planet.
+    // The Sun is a star — render it glowing, with animated solar flares.
     this.body.material = this.starMat;
+    this.flareMesh.visible = true;
     this.starMat.uniforms.uColor.value.setRGB(1.0, 0.93, 0.74);
     this.starMat.uniforms.uSpots.value = 0.25;
     this.coronaMat.uniforms.uColor.value.setRGB(1.0, 0.85, 0.55);
@@ -177,54 +164,25 @@ export class StarInspector {
 
   openStar(star: Star): void {
     this.current = star;
-    const file = DETAIL_TEXTURES[hashStr(star.sourceId) % DETAIL_TEXTURES.length];
 
-    // The alien world (and its atmosphere) takes the star's own colour, so it
-    // reads as an exoplanet rather than a recognisable solar-system body.
-    const rgb = new Float32Array(3);
-    colorFromBpRp(star.bpRp, rgb, 0);
-    this.alienMat.uniforms.uTint.value.setRGB(rgb[0], rgb[1], rgb[2]);
-    this.coronaMat.uniforms.uColor.value.setRGB(rgb[0], rgb[1], rgb[2]);
-    this.coronaMat.uniforms.uIntensity.value = 0.9;
-
-    // Show the procedural planet immediately, then swap to the HD surface once
-    // it loads (if the textures have been committed to public/textures/).
+    // TerraGenesis-style stylised world: procedural biomes (ocean, land, ice,
+    // clouds) varied by the star's temperature, with a glowing atmosphere tinted
+    // by the star's own colour (brightened so it reads as a luminous halo).
     this.body.material = this.planetMat;
+    this.flareMesh.visible = false;
     this.configurePlanet(star);
 
-    const token = ++this.selToken;
-    void this.loadTexture(file)
-      .then((tex) => {
-        if (token !== this.selToken) return;
-        this.alienMat.uniforms.map.value = tex;
-        this.body.material = this.alienMat;
-      })
-      .catch(() => {
-        /* textures not present yet → keep the procedural planet */
-      });
+    const rgb = new Float32Array(3);
+    colorFromBpRp(star.bpRp, rgb, 0);
+    this.coronaMat.uniforms.uColor.value.setRGB(
+      rgb[0] * 0.6 + 0.4,
+      rgb[1] * 0.6 + 0.4,
+      rgb[2] * 0.6 + 0.4,
+    );
+    this.coronaMat.uniforms.uIntensity.value = 1.1;
 
     this.renderStarSpecs(star);
     this.show();
-  }
-
-  private loadTexture(file: string): Promise<THREE.Texture> {
-    let p = this.texCache.get(file);
-    if (p) return p;
-    const url = `${import.meta.env.BASE_URL}textures/${file}`;
-    p = new Promise<THREE.Texture>((resolve, reject) => {
-      this.texLoader.load(
-        url,
-        (t) => {
-          t.colorSpace = THREE.SRGBColorSpace;
-          t.anisotropy = 4;
-          resolve(t);
-        },
-        undefined,
-        reject,
-      );
-    });
-    this.texCache.set(file, p);
-    return p;
   }
 
   /** Advance + render the inspector scene (called each frame while open). */
@@ -234,6 +192,7 @@ export class StarInspector {
     this.time += dt;
     this.planetMat.uniforms.uTime.value = this.time;
     this.starMat.uniforms.uTime.value = this.time;
+    this.flareMat.uniforms.uTime.value = this.time;
     this.group.rotation.y += dt * 0.12;
 
     if (this.introT < 1) {
@@ -506,15 +465,14 @@ function makePlanetMaterial(): THREE.ShaderMaterial {
           col = mix(col, vec3(1.0), cloud * 0.55);
         }
 
-        // day/night lighting (fixed light, planet rotates underneath)
+        // Soft, even lighting (TerraGenesis-style): the night side stays clearly
+        // visible with a gentle terminator rather than going black.
         vec3 L = normalize(vec3(0.7, 0.42, 0.55));
         float diff = max(dot(normalize(vWorldN), L), 0.0);
-        float emissive = uLava * 0.6; // lava self-glows on the night side
-        col *= clamp(0.06 + diff + emissive, 0.0, 1.35);
-        col += water * pow(diff, 24.0) * 0.6; // specular sun-glint on oceans
-        // warm terminator band
-        float term = smoothstep(0.0,0.22,diff) * (1.0 - smoothstep(0.22,0.55,diff));
-        col += vec3(0.3,0.14,0.05) * term * 0.35;
+        float shade = 0.45 + 0.62 * smoothstep(0.0, 1.0, diff); // ambient floor + gentle
+        float emissive = uLava * 0.5;
+        col *= clamp(shade + emissive, 0.0, 1.35);
+        col += water * pow(diff, 24.0) * 0.5; // soft sun-glint on oceans
 
         gl_FragColor = vec4(col, 1.0);
       }
@@ -523,42 +481,45 @@ function makePlanetMaterial(): THREE.ShaderMaterial {
 }
 
 /**
- * Alien planet: uses a real planet texture only as a luminance "detail" source
- * (relief, bands, craters), then recolours it along a palette derived from the
- * star's own colour and lights it with a fixed key direction. Nothing reads as
- * a recognisable solar-system body.
+ * Animated solar flares / prominences: an additive shell around the star whose
+ * plumes flicker and writhe at the limb over time. Shown only for the Sun.
  */
-function makeAlienPlanetMaterial(): THREE.ShaderMaterial {
+function makeSunFlareMaterial(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
-    uniforms: {
-      map: { value: null },
-      uTint: { value: new THREE.Color(0.6, 0.7, 1.0) },
-      uLight: { value: new THREE.Vector3(3, 1.4, 2.2).normalize() },
-    },
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.FrontSide,
+    uniforms: { uTime: { value: 0 } },
     vertexShader: /* glsl */ `
-      varying vec2 vUv;
-      varying vec3 vWorldN;
+      varying vec3 vObj;
+      varying vec3 vNormalV;
+      varying vec3 vViewPos;
       void main(){
-        vUv = uv;
-        vWorldN = normalize(mat3(modelMatrix) * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        vObj = position;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        vViewPos = mv.xyz;
+        vNormalV = normalMatrix * normal;
+        gl_Position = projectionMatrix * mv;
       }
     `,
     fragmentShader: /* glsl */ `
-      uniform sampler2D map;
-      uniform vec3 uTint;
-      uniform vec3 uLight;
-      varying vec2 vUv;
-      varying vec3 vWorldN;
+      varying vec3 vObj;
+      varying vec3 vNormalV;
+      varying vec3 vViewPos;
+      uniform float uTime;
+      ${NOISE_GLSL}
       void main(){
-        vec3 tex = texture2D(map, vUv).rgb;
-        float lum = dot(tex, vec3(0.299, 0.587, 0.114));
-        vec3 shadow = uTint * 0.22;
-        vec3 mid = uTint * 0.9;
-        vec3 hi = mix(uTint, vec3(1.0), 0.65);
-        vec3 base = lum < 0.5 ? mix(shadow, mid, lum * 2.0) : mix(mid, hi, (lum - 0.5) * 2.0);
-        float diff = max(dot(normalize(vWorldN), normalize(uLight)), 0.0);
-        gl_FragColor = vec4(base * (0.08 + 1.05 * diff), 1.0);
+        vec3 dir = normalize(vObj);
+        float ndv = clamp(dot(normalize(vNormalV), normalize(-vViewPos)), 0.0, 1.0);
+        float rim = pow(1.0 - ndv, 1.7);                 // concentrate at the limb
+        // writhing prominence plumes that evolve over time
+        float plume = fbm(dir * 4.0 + vec3(0.0, uTime * 0.28, uTime * 0.13));
+        float p = smoothstep(0.52, 0.92, plume);
+        float flick = 0.5 + 0.5 * sin(uTime * 4.0 + plume * 26.0);
+        float a = rim * p * flick;
+        vec3 col = mix(vec3(1.0, 0.42, 0.06), vec3(1.0, 0.92, 0.55), p);
+        gl_FragColor = vec4(col, a);
       }
     `,
   });
