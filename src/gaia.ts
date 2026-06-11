@@ -70,28 +70,52 @@ export function parseGaiaJson(json: GaiaTapJson): Star[] {
   return stars;
 }
 
-/** Fetch the live Gaia query with a hard timeout. Throws on any failure. */
-async function fetchLive(timeoutMs: number): Promise<Star[]> {
+/** Build the GET form of the query (used when going through a CORS proxy). */
+function buildGetUrl(): string {
+  return `${TAP_URL}?${tapBody().toString()}`;
+}
+
+/** Public CORS proxies that fetch a URL server-side and add CORS headers. */
+const DEFAULT_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?url=',
+];
+
+interface Transport {
+  label: string;
+  url: string;
+  init: RequestInit;
+}
+
+/** Ordered list of ways to reach Gaia: direct first, then via proxies. */
+function transports(proxies: string[]): Transport[] {
+  const list: Transport[] = [
+    // Direct POST, no custom headers → stays a "simple" CORS request.
+    { label: 'direct (POST)', url: TAP_URL, init: { method: 'POST', body: tapBody() } },
+  ];
+  const getUrl = buildGetUrl();
+  for (const p of proxies) {
+    list.push({ label: `proxy ${new URL(p).host}`, url: p + encodeURIComponent(getUrl), init: {} });
+  }
+  return list;
+}
+
+/** Run one transport with a timeout; parse + validate. Throws on any failure. */
+async function fetchVia(t: Transport, timeoutMs: number): Promise<Star[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const t0 = performance.now();
-  console.info(`[gaia] live query (POST) → ${TAP_URL} (timeout ${timeoutMs} ms)`);
-  console.debug('[gaia] ADQL: ' + ADQL);
+  console.info(`[gaia] trying ${t.label} → ${t.url.slice(0, 80)}… (timeout ${timeoutMs} ms)`);
   try {
-    // POST + form body; no custom headers, so it stays a "simple" CORS request.
-    const res = await fetch(TAP_URL, {
-      method: 'POST',
-      body: tapBody(),
-      signal: controller.signal,
-    });
+    const res = await fetch(t.url, { ...t.init, signal: controller.signal });
     const dt = Math.round(performance.now() - t0);
-    console.info(`[gaia] response: HTTP ${res.status} ${res.statusText} in ${dt} ms`);
-    if (!res.ok) throw new Error(`Gaia TAP HTTP ${res.status} ${res.statusText}`);
+    console.info(`[gaia] ${t.label}: HTTP ${res.status} ${res.statusText} in ${dt} ms`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
 
     const json = (await res.json()) as GaiaTapJson;
     const stars = parseGaiaJson(json);
-    if (stars.length === 0) throw new Error('Gaia returned 0 usable rows');
-    console.info(`[gaia] ✅ live OK: ${stars.length} stars in ${Math.round(performance.now() - t0)} ms`);
+    if (stars.length === 0) throw new Error('0 usable rows');
+    console.info(`[gaia] ✅ ${t.label} OK: ${stars.length} stars in ${Math.round(performance.now() - t0)} ms`);
     return stars;
   } finally {
     clearTimeout(timer);
@@ -160,34 +184,45 @@ function applyNames(stars: Star[], named: NamedStar[]): void {
   }
 }
 
+export interface LoadOptions {
+  /** Skip the live attempt entirely (`?offline`). */
+  forceOffline?: boolean;
+  /** Per-attempt timeout in ms (`?timeout=<seconds>`). */
+  timeoutMs?: number;
+  /**
+   * CORS proxy bases to try after the direct request. `false` disables proxies
+   * (`?proxy=0`); a custom base (`?proxy=https://my.proxy/?url=`) replaces them.
+   */
+  proxies?: string[] | false;
+}
+
 /**
- * Load the star catalogue: try live Gaia first, fall back to the bundled
- * dataset on any failure (network, CORS, timeout, empty result). Named-star
- * labels are applied in both cases.
- *
- * `forceOffline` (e.g. `?offline` in the URL) skips the live attempt — handy
- * for testing the resilience path on the open night.
+ * Load the star catalogue. Tries each transport in order — direct Gaia first,
+ * then any CORS proxies — and uses the first that returns rows. Falls back to
+ * the bundled dataset if all fail. Named-star labels are applied in all cases.
  */
-export async function loadStars(
-  forceOffline = false,
-  timeoutMs = DEFAULT_TIMEOUT_MS,
-): Promise<LoadResult> {
+export async function loadStars(opts: LoadOptions = {}): Promise<LoadResult> {
+  const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const proxies = opts.proxies === undefined ? DEFAULT_PROXIES : opts.proxies || [];
+
   const named = await fetchNamedStars();
   let reason: string | undefined;
 
-  if (!forceOffline) {
-    try {
-      const stars = await fetchLive(timeoutMs);
-      applyNames(stars, named);
-      return { stars, source: 'live' };
-    } catch (err) {
-      reason = describeError(err, timeoutMs);
-      console.warn(`[gaia] ⚠️ live query failed → using bundled fallback. Reason: ${reason}`);
-      console.warn('[gaia] underlying error:', err);
-    }
-  } else {
+  if (opts.forceOffline) {
     reason = 'forced offline via ?offline in the URL';
     console.info('[gaia] ?offline set — skipping live query.');
+  } else {
+    for (const t of transports(proxies)) {
+      try {
+        const stars = await fetchVia(t, timeoutMs);
+        applyNames(stars, named);
+        return { stars, source: 'live' };
+      } catch (err) {
+        reason = `${t.label} → ${describeError(err, timeoutMs)}`;
+        console.warn(`[gaia] ⚠️ ${reason}`);
+      }
+    }
+    console.warn('[gaia] all live transports failed → using bundled fallback.');
   }
 
   const stars = await fetchFallback();

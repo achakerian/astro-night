@@ -12,13 +12,18 @@
     <!-- Star identification tooltip -->
     <div id="tooltip" class="tooltip" hidden></div>
 
-    <!-- Selected-object details panel (click a star or the Sun) -->
-    <div id="details" class="details" hidden>
-      <header class="details__header">
-        <h2 id="details-title">—</h2>
-        <button id="details-close" class="details__close" aria-label="Close">×</button>
-      </header>
-      <div id="details-body" class="details__body"></div>
+    <!-- Inspector: click a star (or the Sun) → big render on the left, specs right -->
+    <div id="inspector" class="inspector" hidden>
+      <div class="inspector__visual">
+        <canvas id="inspector-canvas"></canvas>
+      </div>
+      <aside class="inspector__panel">
+        <button id="inspector-close" class="inspector__close" aria-label="Close">×</button>
+        <h2 id="inspector-title">—</h2>
+        <div id="inspector-sub" class="inspector__sub"></div>
+        <div id="inspector-body" class="inspector__body"></div>
+        <p class="inspector__hint">Estimated values are derived from Gaia photometry.</p>
+      </aside>
     </div>
 
     <!-- Loading / boot overlay -->

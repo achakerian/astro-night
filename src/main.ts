@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import './style.css';
-import { DetailsPanel } from './details';
 import { loadStars } from './gaia';
+import { StarInspector } from './inspector';
 import { setupInteraction, type Selection } from './interaction';
 import { StarField } from './stars';
 import { Ui } from './ui';
@@ -35,6 +35,12 @@ async function main(): Promise<void> {
   const timeoutSec = Number(params.get('timeout'));
   const timeoutMs = Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec * 1000 : undefined;
 
+  // ?proxy=0 disables CORS proxies; ?proxy=<base?url=> uses a custom one.
+  const proxyParam = params.get('proxy');
+  let proxies: string[] | false | undefined;
+  if (proxyParam === '0' || proxyParam === 'off') proxies = false;
+  else if (proxyParam) proxies = [proxyParam];
+
   // While the (potentially slow) live query runs, count up on the overlay so a
   // long Gaia response doesn't look like a hang.
   const loadingText = document.querySelector<HTMLElement>('.loading__text');
@@ -48,7 +54,7 @@ async function main(): Promise<void> {
 
   let result;
   try {
-    result = await loadStars(forceOffline, timeoutMs);
+    result = await loadStars({ forceOffline, timeoutMs, proxies });
   } finally {
     window.clearInterval(ticker);
   }
@@ -72,7 +78,7 @@ async function main(): Promise<void> {
 
   function deselect(): void {
     selected = null;
-    details.hide();
+    inspector.close();
   }
 
   function selectObject(sel: Selection): void {
@@ -80,14 +86,15 @@ async function main(): Promise<void> {
     selected = sel;
     const target = focusTarget(sel).clone();
     followPos.copy(target);
-    // Dolly toward the object along the current view direction.
+    // Dolly toward the object underneath the inspector overlay, so closing the
+    // inspector leaves you parked next to it.
     const dist = sel === 'sun' ? 7 : 4;
     flight.flyTo(target, dist, interaction.controls.target);
-    if (sel === 'sun') details.showSun();
-    else details.showStar(field.stars[sel]);
+    if (sel === 'sun') inspector.openSun();
+    else inspector.openStar(field.stars[sel]);
   }
 
-  const details = new DetailsPanel(() => deselect());
+  const inspector = new StarInspector(() => deselect());
   const interaction = setupInteraction(renderer, camera, field, tooltipEl, selectObject);
 
   // ---- UI ---------------------------------------------------------------
@@ -109,7 +116,7 @@ async function main(): Promise<void> {
     },
     onUnitsChange: (useLy) => {
       interaction.setUnits(useLy);
-      details.setUnits(useLy);
+      inspector.setUnits(useLy);
     },
   });
 
@@ -156,6 +163,7 @@ async function main(): Promise<void> {
     }
 
     renderer.render(scene, camera);
+    inspector.update(dt); // renders the inspector's own canvas when open
   }
   frame();
 
